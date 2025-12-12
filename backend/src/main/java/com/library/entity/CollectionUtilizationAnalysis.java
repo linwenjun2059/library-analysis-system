@@ -50,7 +50,7 @@ public class CollectionUtilizationAnalysis implements Serializable {
     private Double avgBorrowDays;
 
     /**
-     * 周转率(本/年)
+     * 周转率（次/本/年）= 总借阅次数 / 馆藏总数 / 时间跨度(2年)
      */
     private Double turnoverRate;
 
@@ -60,12 +60,12 @@ public class CollectionUtilizationAnalysis implements Serializable {
     private Long highDemandBooks;
 
     /**
-     * 中等需求图书数(1-5次)
+     * 中等需求图书数（2-5次）
      */
     private Long mediumDemandBooks;
 
     /**
-     * 低需求图书数(0次)
+     * 低需求图书数（1次）
      */
     private Long lowDemandBooks;
 

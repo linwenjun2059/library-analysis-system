@@ -7,10 +7,11 @@
 2. 读者聚类分群（K-means算法）- 识别不同阅读偏好群体
 
 输出：
-- book_association_rules：图书关联规则（如"借了A也借B"）
-- user_clusters：用户聚类分群结果
-- library_ads.ads_book_association：图书关联规则（Hive）
-- library_ads.ads_user_cluster：用户聚类结果（Hive）
+- book_association_rules（MySQL）：图书关联规则（如"借了A也借B"）
+- user_clusters（MySQL）：用户聚类分群结果
+- cluster_summary（MySQL）：聚类统计摘要
+- library_ads.ads_book_association（Hive）：图书关联规则
+- library_ads.ads_user_cluster（Hive）：用户聚类结果
 
 Author: Library Analysis System
 """

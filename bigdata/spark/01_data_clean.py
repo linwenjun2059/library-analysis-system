@@ -1,5 +1,18 @@
 # -*- coding: utf-8 -*-
-"""Spark数据清洗：从HDFS原始数据清洗后写入Hive分区表"""
+"""
+步骤1：数据清洗（ODS → DWD层）
+
+功能：
+- 从HDFS读取原始CSV数据
+- 数据清洗与转换（日期格式、类型转换、字段计算）
+- 构建用户维度表、图书维度表、借阅明细事实表
+- 写入Hive分区表（按year/month分区）
+
+输出表：
+- library_dwd.dwd_user_info：用户维度表
+- library_dwd.dwd_book_info：图书维度表
+- library_dwd.dwd_lend_detail：借阅明细事实表
+"""
 
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import *
