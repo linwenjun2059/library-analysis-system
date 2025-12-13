@@ -3,7 +3,7 @@
     <el-card shadow="hover">
       <template #header>
         <div class="card-header">
-          <span><el-icon><WarningFilled /></el-icon> 逾期分析</span>
+          <span><el-icon><WarningFilled /></el-icon> 逾期情况分析</span>
           <el-button type="primary" @click="loadData" :loading="loading">
             <el-icon><Refresh /></el-icon> 刷新数据
           </el-button>

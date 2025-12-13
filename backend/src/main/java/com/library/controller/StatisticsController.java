@@ -254,17 +254,6 @@ public class StatisticsController {
     }
 
     /**
-     * 获取馆藏位置分析
-     */
-    @ApiOperation("获取馆藏位置分析")
-    @GetMapping("/location-analysis")
-    public Result<List<Map<String, Object>>> getLocationAnalysis() {
-        log.info("获取馆藏位置分析");
-        List<Map<String, Object>> list = statisticsService.getLocationAnalysis();
-        return Result.success(list);
-    }
-
-    /**
      * 获取借阅时间分布
      */
     @ApiOperation("获取借阅时间分布")

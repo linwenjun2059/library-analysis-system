@@ -149,6 +149,12 @@ const routes = [
         meta: { title: '出版分析' }
       },
       {
+        path: 'prediction-analysis',
+        name: 'PredictionAnalysis',
+        component: () => import('@/views/admin/PredictionAnalysis.vue'),
+        meta: { title: '预测分析' }
+      },
+      {
         path: 'book-association',
         name: 'BookAssociation',
         component: () => import('@/views/admin/BookAssociation.vue'),
@@ -159,12 +165,6 @@ const routes = [
         name: 'UserClustering',
         component: () => import('@/views/admin/UserClustering.vue'),
         meta: { title: '用户聚类分析' }
-      },
-      {
-        path: 'prediction-analysis',
-        name: 'PredictionAnalysis',
-        component: () => import('@/views/admin/PredictionAnalysis.vue'),
-        meta: { title: '预测分析' }
       }
     ]
   },

@@ -17,7 +17,6 @@
           <el-radio-button label="uniqueUserCount">借阅用户数</el-radio-button>
           <el-radio-button label="lendFrequency">借阅频率</el-radio-button>
           <el-radio-button label="avgBorrowDays">平均借阅天数</el-radio-button>
-          <el-radio-button label="overdueRate">逾期率</el-radio-button>
         </el-radio-group>
         <el-select v-model="limit" @change="loadRankingData" style="width: 120px; margin-left: 20px;">
           <el-option label="TOP 10" :value="10" />
@@ -57,7 +56,6 @@
             <el-table-column prop="uniqueUserCount" label="借阅用户数" width="120" align="center" sortable />
             <el-table-column prop="lendFrequency" label="借阅频率" width="120" align="center" :formatter="formatNumber" sortable />
             <el-table-column prop="avgBorrowDays" label="平均借阅天数" width="140" align="center" :formatter="formatNumber" sortable />
-            <el-table-column prop="overdueRate" label="逾期率" width="120" align="center" :formatter="formatPercent" sortable />
             <el-table-column prop="renewCount" label="续借次数" width="120" align="center" sortable />
           </el-table>
         </el-tab-pane>
@@ -119,16 +117,11 @@ const dimensionNames = {
   totalLendCount: '借阅次数',
   uniqueUserCount: '借阅用户数',
   lendFrequency: '借阅频率',
-  avgBorrowDays: '平均借阅天数',
-  overdueRate: '逾期率'
+  avgBorrowDays: '平均借阅天数'
 }
 
 const formatNumber = (row, column, cellValue) => {
   return cellValue ? cellValue.toFixed(2) : '0.00'
-}
-
-const formatPercent = (row, column, cellValue) => {
-  return cellValue ? (cellValue * 100).toFixed(2) + '%' : '0.00%'
 }
 
 const loadAllData = async () => {

@@ -111,11 +111,6 @@ public interface StatisticsService {
     List<Map<String, Object>> getPublishYearAnalysis();
 
     /**
-     * 获取馆藏位置分析数据
-     */
-    List<Map<String, Object>> getLocationAnalysis();
-
-    /**
      * 获取借阅时间分布(按小时)
      */
     List<Map<String, Object>> getLendTimeDistribution();

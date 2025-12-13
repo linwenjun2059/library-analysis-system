@@ -211,16 +211,6 @@ export function getPublishYearAnalysis() {
 }
 
 /**
- * 获取馆藏位置分析
- */
-export function getLocationAnalysis() {
-  return request({
-    url: '/statistics/location-analysis',
-    method: 'get'
-  })
-}
-
-/**
  * 获取借阅时间分布
  */
 export function getLendTimeDistribution() {

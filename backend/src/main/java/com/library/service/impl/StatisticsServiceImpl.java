@@ -328,58 +328,6 @@ public class StatisticsServiceImpl implements StatisticsService {
     }
 
     @Override
-    public List<Map<String, Object>> getLocationAnalysis() {
-        List<BookDimension> books = bookDimensionMapper.selectList(null);
-        List<BookLendSummary> summaries = bookLendSummaryMapper.selectList(null);
-        
-        Map<String, BookLendSummary> summaryMap = summaries.stream()
-                .collect(Collectors.toMap(BookLendSummary::getBookId, s -> s));
-        
-        Map<String, Map<String, Object>> locationMap = new HashMap<>();
-        
-        for (BookDimension book : books) {
-            if (book.getLocationName() == null || book.getLocationName().isEmpty()) {
-                continue;
-            }
-            
-            String location = book.getLocationName();
-            BookLendSummary summary = summaryMap.get(book.getBookId());
-            
-            locationMap.computeIfAbsent(location, k -> {
-                Map<String, Object> stats = new HashMap<>();
-                stats.put("location", location);
-                stats.put("bookCount", 0L);
-                stats.put("totalLendCount", 0L);
-                stats.put("borrowedBooks", 0L);
-                return stats;
-            });
-            
-            Map<String, Object> stats = locationMap.get(location);
-            stats.put("bookCount", ((Long) stats.get("bookCount")) + 1);
-            
-            if (summary != null) {
-                if (summary.getTotalLendCount() != null && summary.getTotalLendCount() > 0) {
-                    stats.put("borrowedBooks", ((Long) stats.get("borrowedBooks")) + 1);
-                    stats.put("totalLendCount", ((Long) stats.get("totalLendCount")) + summary.getTotalLendCount());
-                }
-            }
-        }
-        
-        return locationMap.values().stream()
-                .peek(stats -> {
-                    Long bookCount = (Long) stats.get("bookCount");
-                    Long borrowedBooks = (Long) stats.get("borrowedBooks");
-                    if (bookCount > 0) {
-                        stats.put("circulationRate", borrowedBooks.doubleValue() / bookCount);
-                    } else {
-                        stats.put("circulationRate", 0.0);
-                    }
-                })
-                .sorted((a, b) -> Long.compare((Long) b.get("totalLendCount"), (Long) a.get("totalLendCount")))
-                .collect(Collectors.toList());
-    }
-
-    @Override
     public List<Map<String, Object>> getLendTimeDistribution() {
         List<RecentLendRecords> records = recentLendRecordsMapper.selectList(null);
         

@@ -3,7 +3,7 @@
     <el-card shadow="hover">
       <template #header>
         <div class="card-header">
-          <span><el-icon><User /></el-icon> 活跃用户统计</span>
+          <span><el-icon><User /></el-icon> 活跃用户分析</span>
           <el-button type="primary" size="small" @click="loadData" :loading="loading">
             <el-icon><Refresh /></el-icon> 刷新数据
           </el-button>
