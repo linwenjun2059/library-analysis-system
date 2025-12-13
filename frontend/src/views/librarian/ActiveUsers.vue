@@ -94,10 +94,10 @@
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="userid" label="用户ID" width="200" />
-            <el-table-column prop="dept" label="院系" width="200" show-overflow-tooltip />
-            <el-table-column prop="redrTypeName" label="读者类型" width="120" />
-            <el-table-column prop="borrowCount" label="借阅次数" width="120" align="center" sortable />
+            <el-table-column prop="userid" label="用户ID" min-width="180" />
+            <el-table-column prop="dept" label="院系" min-width="200" show-overflow-tooltip />
+            <el-table-column prop="redrTypeName" label="读者类型" min-width="120" />
+            <el-table-column prop="borrowCount" label="借阅次数" min-width="120" align="center" sortable />
           </el-table>
           
           <el-pagination

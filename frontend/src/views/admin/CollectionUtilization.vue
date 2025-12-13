@@ -68,6 +68,26 @@
           </el-col>
         </el-row>
         
+        <!-- 维度专属图表 -->
+        <el-row :gutter="20" style="margin-bottom: 20px;">
+          <el-col :span="12">
+            <el-card shadow="hover">
+              <template #header>
+                <span style="font-weight: bold;">{{ dimensionType }}借阅排行（TOP15）</span>
+              </template>
+              <div ref="dimensionRankChartRef" style="width: 100%; height: 350px;"></div>
+            </el-card>
+          </el-col>
+          <el-col :span="12">
+            <el-card shadow="hover">
+              <template #header>
+                <span style="font-weight: bold;">{{ dimensionType }}图书数量分布</span>
+              </template>
+              <div ref="bookCountChartRef" style="width: 100%; height: 350px;"></div>
+            </el-card>
+          </el-col>
+        </el-row>
+        
         <!-- 详细列表 -->
         <el-divider />
         <el-table :data="pagedData" stripe :default-sort="{prop: 'turnoverRate', order: 'descending'}">
@@ -154,10 +174,14 @@ const chartRef = ref(null)
 const turnoverDistChartRef = ref(null)
 const demandChartRef = ref(null)
 const radarChartRef = ref(null)
+const dimensionRankChartRef = ref(null)
+const bookCountChartRef = ref(null)
 let chartInstance = null
 let turnoverDistChartInstance = null
 let demandChartInstance = null
 let radarChartInstance = null
+let dimensionRankChartInstance = null
+let bookCountChartInstance = null
 
 // 分页
 const currentPage = ref(1)
@@ -238,6 +262,8 @@ const loadData = async () => {
     initTurnoverDistChart()
     initDemandChart()
     initRadarChart()
+    initDimensionRankChart()
+    initBookCountChart()
     console.log('✅ 馆藏利用分析数据加载成功')
   } catch (error) {
     console.error('❌ 加载馆藏利用分析数据失败：', error)
@@ -547,6 +573,104 @@ const initRadarChart = () => {
   radarChartInstance.setOption(option)
 }
 
+// 维度借阅排行图
+const initDimensionRankChart = () => {
+  if (!dimensionRankChartRef.value) return
+  
+  if (!dimensionRankChartInstance) {
+    dimensionRankChartInstance = echarts.init(dimensionRankChartRef.value)
+  }
+  
+  const top15 = [...filteredData.value]
+    .sort((a, b) => (b.totalLendCount || 0) - (a.totalLendCount || 0))
+    .slice(0, 15)
+    .reverse()
+  
+  const option = {
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' },
+      formatter: '{b}: {c}次'
+    },
+    grid: {
+      left: '30%',
+      right: '10%',
+      top: '5%',
+      bottom: '5%'
+    },
+    xAxis: {
+      type: 'value',
+      name: '借阅次数'
+    },
+    yAxis: {
+      type: 'category',
+      data: top15.map(item => {
+        const name = item.dimensionValue || '未知'
+        return name.length > 15 ? name.substring(0, 15) + '...' : name
+      }),
+      axisLabel: { interval: 0 }
+    },
+    series: [{
+      type: 'bar',
+      data: top15.map(item => item.totalLendCount || 0),
+      itemStyle: {
+        color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+          { offset: 0, color: '#83bff6' },
+          { offset: 1, color: '#188df0' }
+        ])
+      },
+      label: {
+        show: true,
+        position: 'right',
+        formatter: '{c}'
+      }
+    }]
+  }
+  
+  dimensionRankChartInstance.setOption(option)
+}
+
+// 位置图书数量分布图
+const initBookCountChart = () => {
+  if (!bookCountChartRef.value) return
+  
+  if (!bookCountChartInstance) {
+    bookCountChartInstance = echarts.init(bookCountChartRef.value)
+  }
+  
+  const top10 = [...filteredData.value]
+    .sort((a, b) => (b.totalBooks || 0) - (a.totalBooks || 0))
+    .slice(0, 10)
+  
+  const option = {
+    tooltip: {
+      trigger: 'item',
+      formatter: '{b}: {c}本 ({d}%)'
+    },
+    series: [{
+      type: 'pie',
+      radius: ['35%', '65%'],
+      center: ['50%', '50%'],
+      data: top10.map(item => ({
+        value: item.totalBooks || 0,
+        name: item.dimensionValue || '未知'
+      })),
+      emphasis: {
+        itemStyle: {
+          shadowBlur: 10,
+          shadowOffsetX: 0,
+          shadowColor: 'rgba(0, 0, 0, 0.5)'
+        }
+      },
+      label: {
+        formatter: '{b}\n{d}%'
+      }
+    }]
+  }
+  
+  bookCountChartInstance.setOption(option)
+}
+
 onMounted(() => {
   loadData()
   
@@ -555,6 +679,8 @@ onMounted(() => {
     turnoverDistChartInstance?.resize()
     demandChartInstance?.resize()
     radarChartInstance?.resize()
+    dimensionRankChartInstance?.resize()
+    bookCountChartInstance?.resize()
   })
 })
 
@@ -563,6 +689,8 @@ onUnmounted(() => {
   turnoverDistChartInstance?.dispose()
   demandChartInstance?.dispose()
   radarChartInstance?.dispose()
+  dimensionRankChartInstance?.dispose()
+  bookCountChartInstance?.dispose()
 })
 </script>
 

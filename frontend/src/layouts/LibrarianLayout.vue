@@ -17,35 +17,27 @@
         </el-menu-item>
         <el-menu-item index="/librarian/records">
           <el-icon><Document /></el-icon>
-          <span>借阅管理</span>
+          <span>借阅记录查询</span>
         </el-menu-item>
         <el-menu-item index="/librarian/overdue">
           <el-icon><WarningFilled /></el-icon>
-          <span>逾期管理</span>
-        </el-menu-item>
-        <el-menu-item index="/librarian/hot-books">
-          <el-icon><Trophy /></el-icon>
-          <span>热门图书</span>
+          <span>逾期情况分析</span>
         </el-menu-item>
         <el-menu-item index="/librarian/active-users">
           <el-icon><UserFilled /></el-icon>
-          <span>活跃用户</span>
+          <span>活跃用户分析</span>
         </el-menu-item>
-        <el-menu-item index="/librarian/time-distribution">
-          <el-icon><Clock /></el-icon>
-          <span>时间分布分析</span>
+        <el-menu-item index="/librarian/book-ranking">
+          <el-icon><Trophy /></el-icon>
+          <span>图书排行与分析</span>
         </el-menu-item>
         <el-menu-item index="/librarian/book-detail">
           <el-icon><Document /></el-icon>
           <span>图书详情分析</span>
         </el-menu-item>
-        <el-menu-item index="/librarian/book-ranking">
-          <el-icon><Trophy /></el-icon>
-          <span>多维度排行榜</span>
-        </el-menu-item>
-        <el-menu-item index="/librarian/lend-time-analysis">
+        <el-menu-item index="/librarian/time-distribution">
           <el-icon><Clock /></el-icon>
-          <span>借阅时间分析</span>
+          <span>时间与续借分析</span>
         </el-menu-item>
       </el-menu>
     </el-aside>

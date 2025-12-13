@@ -3,7 +3,7 @@
     <el-card shadow="hover">
       <template #header>
         <div class="card-header">
-          <span><el-icon><Document /></el-icon> 借阅业务管理</span>
+          <span><el-icon><Document /></el-icon> 借阅记录查询</span>
         </div>
       </template>
       

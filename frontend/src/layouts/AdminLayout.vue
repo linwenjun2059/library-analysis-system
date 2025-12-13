@@ -33,15 +33,11 @@
         </el-menu-item>
         <el-menu-item index="/admin/publisher-analysis">
           <el-icon><OfficeBuilding /></el-icon>
-          <span>出版社分析</span>
+          <span>出版分析</span>
         </el-menu-item>
-        <el-menu-item index="/admin/publish-year-analysis">
-          <el-icon><Calendar /></el-icon>
-          <span>出版年份分析</span>
-        </el-menu-item>
-        <el-menu-item index="/admin/location-analysis">
-          <el-icon><Location /></el-icon>
-          <span>馆藏位置分析</span>
+        <el-menu-item index="/admin/prediction-analysis">
+          <el-icon><TrendCharts /></el-icon>
+          <span>预测分析</span>
         </el-menu-item>
         <el-menu-item index="/admin/book-association">
           <el-icon><Connection /></el-icon>
@@ -50,10 +46,6 @@
         <el-menu-item index="/admin/user-clustering">
           <el-icon><PieChart /></el-icon>
           <span>用户聚类分析</span>
-        </el-menu-item>
-        <el-menu-item index="/admin/prediction-analysis">
-          <el-icon><TrendCharts /></el-icon>
-          <span>预测分析</span>
         </el-menu-item>
       </el-menu>
     </el-aside>

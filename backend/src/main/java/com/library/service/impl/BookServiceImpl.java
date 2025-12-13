@@ -76,35 +76,34 @@ public class BookServiceImpl implements BookService {
 
     @Override
     public List<BookLendSummary> getBookRanking(String dimension, Integer limit) {
-        LambdaQueryWrapper<BookLendSummary> wrapper = new LambdaQueryWrapper<>();
-        
-        // 根据维度排序
+        // 根据维度确定排序字段
+        String orderField;
         if (StrUtil.isNotBlank(dimension)) {
             switch (dimension) {
                 case "totalLendCount":
-                    wrapper.orderByDesc(BookLendSummary::getTotalLendCount);
+                    orderField = "s.total_lend_count";
                     break;
                 case "uniqueUserCount":
-                    wrapper.orderByDesc(BookLendSummary::getUniqueUserCount);
+                    orderField = "s.unique_user_count";
                     break;
                 case "lendFrequency":
-                    wrapper.orderByDesc(BookLendSummary::getLendFrequency);
+                    orderField = "s.lend_frequency";
                     break;
                 case "avgBorrowDays":
-                    wrapper.orderByDesc(BookLendSummary::getAvgBorrowDays);
+                    orderField = "s.avg_borrow_days";
                     break;
                 case "overdueRate":
-                    wrapper.orderByDesc(BookLendSummary::getOverdueRate);
+                    orderField = "s.overdue_rate";
                     break;
                 default:
-                    wrapper.orderByDesc(BookLendSummary::getTotalLendCount);
+                    orderField = "s.total_lend_count";
             }
         } else {
-            wrapper.orderByDesc(BookLendSummary::getTotalLendCount);
+            orderField = "s.total_lend_count";
         }
         
-        wrapper.last("LIMIT " + limit);
-        return bookLendSummaryMapper.selectList(wrapper);
+        // 使用关联查询获取书名
+        return bookLendSummaryMapper.selectRankingWithTitle(orderField, limit);
     }
 
     @Override

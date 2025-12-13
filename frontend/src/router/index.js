@@ -72,25 +72,19 @@ const routes = [
         path: 'records',
         name: 'LibrarianRecords',
         component: () => import('@/views/librarian/Records.vue'),
-        meta: { title: '借阅业务管理' }
+        meta: { title: '借阅记录查询' }
       },
       {
         path: 'overdue',
         name: 'OverdueManagement',
         component: () => import('@/views/librarian/OverdueManagement.vue'),
-        meta: { title: '逾期管理' }
-      },
-      {
-        path: 'hot-books',
-        name: 'HotBooks',
-        component: () => import('@/views/librarian/HotBooks.vue'),
-        meta: { title: '热门图书统计' }
+        meta: { title: '逾期情况分析' }
       },
       {
         path: 'active-users',
         name: 'ActiveUsers',
         component: () => import('@/views/librarian/ActiveUsers.vue'),
-        meta: { title: '活跃用户统计' }
+        meta: { title: '活跃用户分析' }
       },
       {
         path: 'book-detail',
@@ -102,13 +96,7 @@ const routes = [
         path: 'book-ranking',
         name: 'BookRanking',
         component: () => import('@/views/librarian/BookRanking.vue'),
-        meta: { title: '多维度图书排行榜' }
-      },
-      {
-        path: 'lend-time-analysis',
-        name: 'LendTimeAnalysis',
-        component: () => import('@/views/librarian/LendTimeAnalysis.vue'),
-        meta: { title: '借阅时间分析' }
+        meta: { title: '图书排行与分析' }
       },
       {
         path: 'time-distribution',
@@ -158,19 +146,7 @@ const routes = [
         path: 'publisher-analysis',
         name: 'PublisherAnalysis',
         component: () => import('@/views/admin/PublisherAnalysis.vue'),
-        meta: { title: '出版社分析' }
-      },
-      {
-        path: 'publish-year-analysis',
-        name: 'PublishYearAnalysis',
-        component: () => import('@/views/admin/PublishYearAnalysis.vue'),
-        meta: { title: '出版年份分析' }
-      },
-      {
-        path: 'location-analysis',
-        name: 'LocationAnalysis',
-        component: () => import('@/views/admin/LocationAnalysis.vue'),
-        meta: { title: '馆藏位置分析' }
+        meta: { title: '出版分析' }
       },
       {
         path: 'book-association',

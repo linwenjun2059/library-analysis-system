@@ -78,4 +78,22 @@ public class BookLendSummary implements Serializable {
      */
     @TableField(exist = false)
     private Date createTime;
+
+    /**
+     * 书名(关联查询，非数据库字段)
+     */
+    @TableField(exist = false)
+    private String title;
+
+    /**
+     * 作者(关联查询，非数据库字段)
+     */
+    @TableField(exist = false)
+    private String author;
+
+    /**
+     * 主题(关联查询，非数据库字段)
+     */
+    @TableField(exist = false)
+    private String subject;
 }
