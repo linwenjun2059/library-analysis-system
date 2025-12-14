@@ -518,38 +518,45 @@ onUnmounted(() => {
 .dashboard-container {
   .kpi-card {
     margin-bottom: 20px;
-    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.2s ease;
     
     &:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+      transform: translateY(-2px);
     }
     
     .trend {
       margin-top: 12px;
       font-size: 13px;
       font-weight: 600;
+      font-family: 'Inter', sans-serif;
       
       .up {
-        color: #67c23a;
+        color: #10b981;
       }
       
       .down {
-        color: #f56c6c;
+        color: #ef4444;
       }
     }
     
     :deep(.el-statistic) {
       .el-statistic__head {
         font-weight: 600;
-        color: #606266;
+        font-family: 'Inter', sans-serif;
+        color: #6b7280;
         margin-bottom: 12px;
+        font-size: 14px;
       }
       
       .el-statistic__number {
         font-weight: 700;
         font-size: 28px;
+        font-family: 'Inter', sans-serif;
+        color: #111827;
+      }
+      
+      .el-statistic__suffix {
+        color: #6b7280;
       }
     }
   }
@@ -557,7 +564,8 @@ onUnmounted(() => {
   .card-header {
     font-weight: 700;
     font-size: 16px;
-    color: #303133;
+    font-family: 'Inter', sans-serif;
+    color: #111827;
     
     span {
       display: flex;
@@ -568,16 +576,15 @@ onUnmounted(() => {
   
   :deep(.el-card) {
     margin-bottom: 20px;
-    transition: all 0.3s;
+    transition: all 0.2s ease;
     
     &:hover {
       transform: translateY(-2px);
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
     }
     
     .el-card__header {
-      background: linear-gradient(135deg, rgba(245, 108, 108, 0.05) 0%, rgba(230, 162, 60, 0.05) 100%);
-      border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+      background: #f9fafb;
+      border-bottom: 1px solid #e5e7eb;
       padding: 16px 20px;
     }
     

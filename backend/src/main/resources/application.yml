@@ -92,7 +92,7 @@ mybatis-plus:
 # JWT配置
 jwt:
   # 密钥
-  secret: library-analysis-system-secret-key-2024
+  secret: library-analysis-system-secret-key-2025
   # 过期时间（7天，单位：秒）
   expiration: 604800
   # Token前缀

@@ -39,7 +39,7 @@ STORED AS TEXTFILE
 LOCATION '/data/library/raw'
 TBLPROPERTIES (
     'creator'='system',
-    'create_time'='2024-12-03',
+    'create_time'='2025-12-03',
     'skip.header.line.count'='1'
 );
 

@@ -108,56 +108,58 @@ const handleCommand = (command) => {
 .layout-container {
   width: 100%;
   height: 100vh;
-  background: linear-gradient(135deg, #f5f7fa 0%, #e9ecef 100%);
+  background: transparent;
 }
 
 .layout-aside {
-  background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
-  border-right: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.04);
+  background: #ffffff;
+  border-right: 1px solid #e5e7eb;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.05);
   
   .logo {
     height: 64px;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
+    gap: 12px;
     font-size: 18px;
     font-weight: 700;
-    background: linear-gradient(135deg, #f56c6c 0%, #e6a23c 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    font-family: 'Inter', sans-serif;
+    color: #111827;
+    border-bottom: 1px solid #e5e7eb;
     padding: 0 20px;
     
     .el-icon {
-      color: #f56c6c;
+      color: #3b82f6;
       font-size: 24px;
     }
   }
   
   .layout-menu {
     border-right: none;
-    padding: 10px 0;
+    padding: 12px 0;
+    background: transparent;
     
     :deep(.el-menu-item) {
       margin: 4px 12px;
       border-radius: 8px;
-      transition: all 0.3s;
+      transition: all 0.2s ease;
+      color: #6b7280;
+      font-weight: 500;
+      font-family: 'Inter', sans-serif;
       
       &:hover {
-        background: linear-gradient(135deg, rgba(245, 108, 108, 0.1) 0%, rgba(230, 162, 60, 0.1) 100%);
-        color: #f56c6c;
+        background: #f3f4f6;
+        color: #111827;
       }
       
       &.is-active {
-        background: linear-gradient(135deg, #f56c6c 0%, #e6a23c 100%);
-        color: #fff;
+        background: #eff6ff;
+        color: #3b82f6;
         font-weight: 600;
         
         .el-icon {
-          color: #fff;
+          color: #3b82f6;
         }
       }
     }
@@ -166,8 +168,8 @@ const handleCommand = (command) => {
 
 .layout-header {
   background: #ffffff;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  border-bottom: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -178,10 +180,8 @@ const handleCommand = (command) => {
     .page-title {
       font-size: 20px;
       font-weight: 700;
-      background: linear-gradient(135deg, #f56c6c 0%, #e6a23c 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+      font-family: 'Inter', sans-serif;
+      color: #111827;
     }
   }
   
@@ -197,13 +197,16 @@ const handleCommand = (command) => {
       gap: 8px;
       padding: 8px 16px;
       border-radius: 8px;
-      transition: all 0.3s;
+      transition: all 0.2s ease;
       font-weight: 500;
-      color: #606266;
+      color: #374151;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
       
       &:hover {
-        background: linear-gradient(135deg, rgba(245, 108, 108, 0.1) 0%, rgba(230, 162, 60, 0.1) 100%);
-        color: #f56c6c;
+        background: #f3f4f6;
+        border-color: #d1d5db;
+        color: #111827;
       }
     }
   }
@@ -217,7 +220,7 @@ const handleCommand = (command) => {
 
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.3s ease;
+  transition: opacity 0.2s ease;
 }
 
 .fade-enter-from,

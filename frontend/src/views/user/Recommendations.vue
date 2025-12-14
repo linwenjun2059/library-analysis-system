@@ -113,7 +113,7 @@
             <el-col :xs="24" :md="12">
               <el-card class="chart-card" shadow="never">
                 <template #header>
-                  <span><el-icon><DataAnalysis /></el-icon> 类型分布</span>
+                  <span><el-icon><DataAnalysis /></el-icon> 类型分布（Top 10）</span>
                 </template>
                 <div ref="hotSubjectChartRef" class="chart"></div>
               </el-card>
@@ -184,7 +184,7 @@
             <el-col :xs="24" :md="12">
               <el-card class="chart-card" shadow="never">
                 <template #header>
-                  <span><el-icon><DataAnalysis /></el-icon> 类型分布</span>
+                  <span><el-icon><DataAnalysis /></el-icon> 类型分布（Top 10）</span>
                 </template>
                 <div ref="deptSubjectChartRef" class="chart"></div>
               </el-card>
@@ -477,7 +477,10 @@ const hotSubjectStats = computed(() => {
     const key = item.subject || '未知类型'
     counter[key] = (counter[key] || 0) + 1
   })
-  return Object.entries(counter).map(([name, value]) => ({ name, value }))
+  return Object.entries(counter)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([name, value]) => ({ name, value }))
 })
 
 const hotAuthorStats = computed(() => {
@@ -498,7 +501,10 @@ const deptSubjectStats = computed(() => {
     const key = item.subject || '未知类型'
     counter[key] = (counter[key] || 0) + 1
   })
-  return Object.entries(counter).map(([name, value]) => ({ name, value }))
+  return Object.entries(counter)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([name, value]) => ({ name, value }))
 })
 
 const deptAuthorStats = computed(() => {

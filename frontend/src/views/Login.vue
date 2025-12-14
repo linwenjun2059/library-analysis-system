@@ -165,7 +165,7 @@
     
     <!-- 页脚 -->
     <div class="login-footer">
-      <p>© 2024 Library Analysis System. All rights reserved.</p>
+      <p>© 2025 Library Analysis System. All rights reserved.</p>
     </div>
   </div>
 </template>
@@ -286,7 +286,6 @@ const useAdminAccount = (username, password) => {
 </script>
 
 <style scoped lang="scss">
-/* 容器和背景 */
 .login-container {
   position: relative;
   display: flex;
@@ -299,71 +298,24 @@ const useAdminAccount = (username, password) => {
   overflow: hidden;
 }
 
-/* 背景装饰 */
 .background-decoration {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  pointer-events: none;
+  display: none;
 }
 
-.circle {
-  position: absolute;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
-  animation: float 20s infinite ease-in-out;
-}
-
-.circle-1 {
-  width: 300px;
-  height: 300px;
-  top: -100px;
-  left: -100px;
-  animation-delay: 0s;
-}
-
-.circle-2 {
-  width: 200px;
-  height: 200px;
-  bottom: -50px;
-  right: -50px;
-  animation-delay: 5s;
-}
-
-.circle-3 {
-  width: 150px;
-  height: 150px;
-  top: 50%;
-  right: 10%;
-  animation-delay: 10s;
-}
-
-@keyframes float {
-  0%, 100% {
-    transform: translateY(0) rotate(0deg);
-  }
-  50% {
-    transform: translateY(-30px) rotate(180deg);
-  }
-}
-
-/* 登录卡片 */
 .login-card {
   position: relative;
   width: 480px;
-  padding: 50px;
+  padding: 40px;
   background: #ffffff;
-  border-radius: 24px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  animation: slideUp 0.6s ease-out;
-  z-index: 1;
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  animation: slideUp 0.4s ease-out;
 }
 
 @keyframes slideUp {
   from {
     opacity: 0;
-    transform: translateY(30px);
+    transform: translateY(20px);
   }
   to {
     opacity: 1;
@@ -371,10 +323,9 @@ const useAdminAccount = (username, password) => {
   }
 }
 
-/* 头部 */
 .login-header {
   text-align: center;
-  margin-bottom: 40px;
+  margin-bottom: 32px;
 }
 
 .logo {
@@ -384,51 +335,48 @@ const useAdminAccount = (username, password) => {
   width: 80px;
   height: 80px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 20px;
+  border-radius: 16px;
   margin-bottom: 20px;
-  box-shadow: 0 8px 16px rgba(102, 126, 234, 0.3);
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.05);
-  }
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 
 .title {
   font-size: 28px;
   font-weight: 700;
-  color: #303133;
+  font-family: 'Inter', sans-serif;
+  color: #111827;
   margin: 0 0 8px 0;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
 }
 
 .subtitle {
   font-size: 14px;
-  color: #909399;
+  color: #6b7280;
   margin: 0;
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
+  font-family: 'Inter', sans-serif;
 }
 
-/* 标签页 */
 .login-tabs {
   margin-bottom: 0;
 }
 
-.login-tabs :deep(.el-tabs__nav-wrap::after) {
-  display: none;
-}
-
 .login-tabs :deep(.el-tabs__active-bar) {
   height: 3px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #3b82f6;
+}
+
+.login-tabs :deep(.el-tabs__item) {
+  color: #6b7280;
+  font-weight: 500;
+  transition: all 0.2s;
+  
+  &:hover {
+    color: #111827;
+  }
+  
+  &.is-active {
+    color: #3b82f6;
+  }
 }
 
 .tab-label {
@@ -437,11 +385,11 @@ const useAdminAccount = (username, password) => {
   gap: 8px;
   font-size: 15px;
   font-weight: 500;
+  font-family: 'Inter', sans-serif;
 }
 
-/* 表单容器 */
 .form-container {
-  padding: 30px 0 0 0;
+  padding: 24px 0 0 0;
 }
 
 .login-button {
@@ -449,32 +397,20 @@ const useAdminAccount = (username, password) => {
   height: 48px;
   font-size: 16px;
   font-weight: 600;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border: none;
+  font-family: 'Inter', sans-serif;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  transition: all 0.3s;
 }
 
-.login-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
-}
-
-.login-button:active {
-  transform: translateY(0);
-}
-
-/* 信息卡片 */
 .info-card {
-  margin-top: 24px;
-  padding: 20px;
-  background: linear-gradient(135deg, #f5f7fa 0%, #e9ecef 100%);
-  border-radius: 16px;
-  border: 1px solid #e4e7ed;
+  margin-top: 20px;
+  padding: 16px;
+  background: #f9fafb;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
 }
 
 .info-header {
@@ -484,65 +420,57 @@ const useAdminAccount = (username, password) => {
   margin-bottom: 12px;
   font-size: 14px;
   font-weight: 600;
-  color: #303133;
+  color: #374151;
+  font-family: 'Inter', sans-serif;
 }
 
 .info-text {
-  margin: 0 0 16px 0;
+  margin: 0 0 12px 0;
   font-size: 13px;
-  color: #606266;
+  color: #6b7280;
   line-height: 1.6;
 }
 
-/* 测试账号 */
 .test-account {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 12px 16px;
   background: #ffffff;
-  border-radius: 10px;
-  border: 2px dashed #409eff;
+  border-radius: 8px;
+  border: 2px dashed #3b82f6;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.2s ease;
   margin-bottom: 12px;
 }
 
 .test-account:hover {
-  border-color: #66b1ff;
-  background: #ecf5ff;
+  border-color: #2563eb;
+  background: #eff6ff;
   transform: translateX(4px);
-}
-
-.test-account .label {
-  font-size: 13px;
-  color: #606266;
-  font-weight: 500;
 }
 
 .test-account .account {
   flex: 1;
   font-size: 12px;
   font-family: 'Courier New', monospace;
-  color: #409eff;
+  color: #3b82f6;
   font-weight: 600;
-  letter-spacing: 0.5px;
 }
 
 .test-account .copy-icon {
-  color: #909399;
-  transition: color 0.3s;
+  color: #9ca3af;
+  transition: color 0.2s;
 }
 
 .test-account:hover .copy-icon {
-  color: #409eff;
+  color: #3b82f6;
 }
 
-/* 管理员账号列表 */
 .test-accounts {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   margin-bottom: 12px;
 }
 
@@ -552,17 +480,17 @@ const useAdminAccount = (username, password) => {
   justify-content: space-between;
   padding: 14px 16px;
   background: #ffffff;
-  border-radius: 10px;
-  border: 2px solid #e4e7ed;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.2s ease;
 }
 
 .account-item:hover {
-  border-color: #67c23a;
-  background: #f0f9ff;
+  border-color: #3b82f6;
+  background: #eff6ff;
   transform: translateX(4px);
-  box-shadow: 0 4px 12px rgba(103, 194, 58, 0.2);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
 }
 
 .account-label {
@@ -571,7 +499,8 @@ const useAdminAccount = (username, password) => {
   gap: 8px;
   font-size: 14px;
   font-weight: 500;
-  color: #303133;
+  color: #374151;
+  font-family: 'Inter', sans-serif;
 }
 
 .account-value {
@@ -581,54 +510,44 @@ const useAdminAccount = (username, password) => {
 }
 
 .account-value .divider {
-  color: #dcdfe6;
+  color: #d1d5db;
   font-weight: 600;
 }
 
-/* 提示文本 */
 .hint {
   margin: 0;
   font-size: 12px;
-  color: #909399;
+  color: #9ca3af;
   text-align: center;
   font-style: italic;
 }
 
-/* 页脚 */
 .login-footer {
   position: relative;
   margin-top: 30px;
   text-align: center;
   color: rgba(255, 255, 255, 0.8);
   font-size: 13px;
-  z-index: 1;
+  font-family: 'Inter', sans-serif;
 }
 
 .login-footer p {
   margin: 0;
 }
 
-/* 输入框样式 */
 :deep(.el-input__wrapper) {
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  transition: all 0.3s;
+  border-radius: 8px;
 }
 
-:deep(.el-input__wrapper:hover) {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+:deep(.el-icon) {
+  color: #6b7280;
 }
 
-:deep(.el-input__wrapper.is-focus) {
-  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
-}
-
-/* 响应式设计 */
 @media (max-width: 768px) {
   .login-card {
     width: 90%;
     max-width: 400px;
-    padding: 30px 25px;
+    padding: 30px 24px;
   }
   
   .title {
