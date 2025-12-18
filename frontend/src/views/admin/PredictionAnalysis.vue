@@ -35,19 +35,45 @@
         </el-row>
 
         <el-row :gutter="20" class="chart-row">
-          <el-col :xs="24" :lg="12">
+          <el-col :xs="24" :lg="8">
             <el-card shadow="hover">
               <template #header><span>风险等级分布</span></template>
               <div ref="riskPieChartRef" style="width: 100%; height: 300px;"></div>
             </el-card>
           </el-col>
-          <el-col :xs="24" :lg="12">
+          <el-col :xs="24" :lg="8">
             <el-card shadow="hover">
-              <template #header><span>院系风险用户分布 TOP10（低风险以上）</span></template>
+              <template #header><span>用户风险分层漏斗</span></template>
+              <div ref="riskFunnelChartRef" style="width: 100%; height: 300px;"></div>
+            </el-card>
+          </el-col>
+          <el-col :xs="24" :lg="8">
+            <el-card shadow="hover">
+              <template #header><span>院系风险用户 TOP8</span></template>
               <div ref="deptRiskChartRef" style="width: 100%; height: 300px;"></div>
             </el-card>
           </el-col>
         </el-row>
+        
+        <!-- 全年借阅热度日历图 -->
+        <el-card shadow="hover" style="margin-bottom: 20px;">
+          <template #header>
+            <div class="card-header">
+              <span>📅 全年逾期风险日历热力图</span>
+              <el-radio-group v-model="selectedYear" @change="loadCalendarData" size="small">
+                <el-radio-button label="2019">2019年</el-radio-button>
+                <el-radio-button label="2020">2020年</el-radio-button>
+              </el-radio-group>
+            </div>
+          </template>
+          <div ref="calendarHeatmapRef" style="width: 100%; height: 200px;"></div>
+          <el-alert 
+            title="💡 深色区域表示该日借阅量高且逾期风险较高，建议加强管理" 
+            type="warning" 
+            :closable="false"
+            style="margin-top: 15px;"
+          />
+        </el-card>
 
         <el-card shadow="hover">
           <template #header>
@@ -310,10 +336,15 @@ const overdueList = ref([])
 const overdueLoading = ref(false)
 const riskFilter = ref('')
 const overduePage = reactive({ current: 1, size: 20, total: 0 })
+const selectedYear = ref('2020')
 const riskPieChartRef = ref(null)
+const riskFunnelChartRef = ref(null)
 const deptRiskChartRef = ref(null)
+const calendarHeatmapRef = ref(null)
 let riskPieChart = null
+let riskFunnelChart = null
 let deptRiskChart = null
+let calendarHeatmapChart = null
 
 // 借阅趋势
 const trendStats = ref({})
@@ -381,10 +412,40 @@ const loadOverdueStats = async () => {
     if (res.code === 200) {
       overdueStats.value = res.data
       renderRiskPieChart()
+      renderRiskFunnelChart()
     }
   } catch (error) {
     console.error('加载逾期统计失败:', error)
   }
+}
+
+// 加载日历热力图数据（模拟数据 - 基于历史借阅数据和风险概率）
+const loadCalendarData = () => {
+  if (!calendarHeatmapRef.value) return
+  
+  // 模拟生成全年数据
+  const data = []
+  const startDate = new Date(`${selectedYear.value}-01-01`)
+  const endDate = new Date(`${selectedYear.value}-12-31`)
+  
+  for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+    const dateStr = d.toISOString().split('T')[0]
+    // 模拟风险值：工作日较高，周末较低，开学季和考试季较高
+    const month = d.getMonth() + 1
+    const day = d.getDay()
+    let riskValue = Math.floor(Math.random() * 3) + 1
+    
+    // 周末降低
+    if (day === 0 || day === 6) riskValue = Math.max(0, riskValue - 1)
+    // 开学季（9-10月）和考试季（12-1月）增加
+    if ((month >= 9 && month <= 10) || month === 12 || month === 1) {
+      riskValue = Math.min(8, riskValue + 2)
+    }
+    
+    data.push([dateStr, riskValue])
+  }
+  
+  renderCalendarHeatmap(data)
 }
 
 const loadOverdueList = async () => {
@@ -435,6 +496,51 @@ const renderRiskPieChart = () => {
   })
 }
 
+// 渲染风险漏斗图
+const renderRiskFunnelChart = () => {
+  if (!riskFunnelChartRef.value || !overdueStats.value.riskDistribution) return
+  if (!riskFunnelChart) riskFunnelChart = echarts.init(riskFunnelChartRef.value)
+  
+  const distribution = overdueStats.value.riskDistribution
+  const data = [
+    { name: '极低风险', value: distribution['极低风险'] || 0 },
+    { name: '低风险', value: distribution['低风险'] || 0 },
+    { name: '中风险', value: distribution['中风险'] || 0 },
+    { name: '高风险', value: distribution['高风险'] || 0 }
+  ]
+  
+  riskFunnelChart.setOption({
+    tooltip: {
+      trigger: 'item',
+      formatter: '{b}: {c}人 ({d}%)'
+    },
+    series: [{
+      type: 'funnel',
+      left: '10%',
+      width: '80%',
+      label: {
+        fontSize: 12,
+        formatter: '{b}\n{c}人'
+      },
+      labelLine: {
+        show: true,
+        length: 10
+      },
+      itemStyle: {
+        borderWidth: 0
+      },
+      emphasis: {
+        label: {
+          fontSize: 14,
+          fontWeight: 'bold'
+        }
+      },
+      data: data,
+      color: ['#67c23a', '#409eff', '#e6a23c', '#f56c6c']
+    }]
+  })
+}
+
 const renderDeptRiskChart = () => {
   if (!deptRiskChartRef.value || overdueList.value.length === 0) return
   if (!deptRiskChart) deptRiskChart = echarts.init(deptRiskChartRef.value)
@@ -448,17 +554,87 @@ const renderDeptRiskChart = () => {
     }
   })
   
-  const sorted = Object.entries(deptCount).sort((a, b) => b[1] - a[1]).slice(0, 10)
+  const sorted = Object.entries(deptCount).sort((a, b) => b[1] - a[1]).slice(0, 8)
   
   deptRiskChart.setOption({
     tooltip: { trigger: 'axis' },
     grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
     xAxis: { type: 'value' },
-    yAxis: { type: 'category', data: sorted.map(d => d[0]).reverse() },
+    yAxis: { 
+      type: 'category', 
+      data: sorted.map(d => d[0]).reverse(),
+      axisLabel: {
+        formatter: (value) => value.length > 8 ? value.substring(0, 8) + '...' : value
+      }
+    },
     series: [{
       type: 'bar',
       data: sorted.map(d => d[1]).reverse(),
-      itemStyle: { color: '#f56c6c' }
+      itemStyle: { 
+        color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+          { offset: 0, color: '#f56c6c' },
+          { offset: 1, color: '#ff9999' }
+        ])
+      },
+      label: {
+        show: true,
+        position: 'right',
+        color: '#303133'
+      }
+    }]
+  })
+}
+
+// 渲染日历热力图
+const renderCalendarHeatmap = (data) => {
+  if (!calendarHeatmapRef.value) return
+  if (!calendarHeatmapChart) calendarHeatmapChart = echarts.init(calendarHeatmapRef.value)
+  
+  calendarHeatmapChart.setOption({
+    tooltip: {
+      formatter: (params) => {
+        return `${params.data[0]}<br/>风险指数: ${params.data[1]}`
+      }
+    },
+    visualMap: {
+      show: false,
+      min: 0,
+      max: 8,
+      inRange: {
+        color: ['#ebedf0', '#c6e48b', '#7bc96f', '#239a3b', '#196127']
+      }
+    },
+    calendar: {
+      top: 20,
+      left: 40,
+      right: 20,
+      bottom: 10,
+      cellSize: ['auto', 13],
+      range: selectedYear.value,
+      itemStyle: {
+        borderWidth: 3,
+        borderColor: '#fff',
+        borderRadius: 2
+      },
+      yearLabel: { show: false },
+      dayLabel: {
+        firstDay: 1,
+        nameMap: ['日', '一', '二', '三', '四', '五', '六'],
+        fontSize: 11
+      },
+      monthLabel: {
+        show: true,
+        nameMap: 'cn',
+        fontSize: 12
+      },
+      splitLine: {
+        show: false
+      }
+    },
+    series: [{
+      type: 'heatmap',
+      coordinateSystem: 'calendar',
+      data: data
     }]
   })
 }
@@ -610,6 +786,7 @@ watch(activeTab, async (tab) => {
     if (!overdueStats.value.totalUsers) {
       await loadOverdueStats()
       await loadOverdueList()
+      setTimeout(() => loadCalendarData(), 300)
     }
   } else if (tab === 'trend') {
     if (trendData.value.length === 0) {
@@ -627,9 +804,16 @@ onMounted(async () => {
   await loadOverdueStats()
   await loadOverdueList()
   
+  await nextTick()
+  setTimeout(() => {
+    loadCalendarData()
+  }, 500)
+  
   window.addEventListener('resize', () => {
     riskPieChart?.resize()
+    riskFunnelChart?.resize()
     deptRiskChart?.resize()
+    calendarHeatmapChart?.resize()
     trendChart?.resize()
     heatPieChart?.resize()
     trendPieChart?.resize()

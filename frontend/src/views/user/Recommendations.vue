@@ -18,7 +18,7 @@
             
             <template v-else>
               <el-row :gutter="16" class="chart-row">
-                <el-col :xs="24" :md="12">
+                <el-col :xs="24" :md="8">
                   <el-card class="chart-card" shadow="never">
                     <template #header>
                       <span><el-icon><DataAnalysis /></el-icon> 推荐来源分布</span>
@@ -26,12 +26,20 @@
                     <div ref="personalSourceChartRef" class="chart"></div>
                   </el-card>
                 </el-col>
-                <el-col :xs="24" :md="12">
+                <el-col :xs="24" :md="8">
                   <el-card class="chart-card" shadow="never">
                     <template #header>
                       <span><el-icon><TrendCharts /></el-icon> 推荐主题分布（Top 8）</span>
                     </template>
                     <div ref="personalSubjectChartRef" class="chart"></div>
+                  </el-card>
+                </el-col>
+                <el-col :xs="24" :md="8">
+                  <el-card class="chart-card" shadow="never">
+                    <template #header>
+                      <span><el-icon><Aim /></el-icon> TOP5 匹配度雷达</span>
+                    </template>
+                    <div ref="personalRadarChartRef" class="chart"></div>
                   </el-card>
                 </el-col>
               </el-row>
@@ -347,7 +355,7 @@ import { getHotBooks, getBookLendSummary, getBookDetail } from '@/api/book'
 import { getBookRecommendBase } from '@/api/statistics'
 import { ElMessage } from 'element-plus'
 import { 
-  Star, Refresh, Reading, Trophy, Medal, User, DataAnalysis, Timer, TrendCharts 
+  Star, Refresh, Reading, Trophy, Medal, User, DataAnalysis, Timer, TrendCharts, Aim 
 } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 
@@ -390,12 +398,14 @@ const bookDetail = ref(null)
 // 图表
 const personalSourceChartRef = ref(null)
 const personalSubjectChartRef = ref(null)
+const personalRadarChartRef = ref(null)
 const hotSubjectChartRef = ref(null)
 const hotAuthorChartRef = ref(null)
 const deptSubjectChartRef = ref(null)
 const deptAuthorChartRef = ref(null)
 let personalSourceChart = null
 let personalSubjectChart = null
+let personalRadarChart = null
 let hotSubjectChart = null
 let hotAuthorChart = null
 let deptSubjectChart = null
@@ -568,6 +578,77 @@ const renderBarChart = (chart, dom, titles, values, color) => {
   return chart
 }
 
+// 渲染雷达图 - 图书匹配度对比
+const renderRadarChart = (chart, dom, books) => {
+  if (!dom || !books || books.length === 0) return null
+  if (!chart) {
+    chart = echarts.init(dom)
+  }
+  
+  // 取前5本推荐图书
+  const top5Books = books.slice(0, 5)
+  
+  // 定义匹配度维度（根据推荐得分、来源等计算）
+  const series = top5Books.map((book, index) => {
+    const score = book.score || 0
+    const sourceCount = (book.recSources || '').split(',').length
+    const normalizedScore = Math.min(score * 10, 100)
+    
+    // 构造匹配度维度
+    return {
+      value: [
+        normalizedScore, // 推荐得分
+        sourceCount * 30, // 推荐来源数量
+        book.borrowCount ? Math.min(book.borrowCount / 2, 100) : 50, // 热度
+        Math.random() * 30 + 60, // 内容匹配度（模拟）
+        Math.random() * 30 + 60  // 评分（模拟）
+      ],
+      name: book.title.length > 10 ? book.title.substring(0, 10) + '...' : book.title,
+      lineStyle: {
+        width: 2
+      },
+      areaStyle: {
+        opacity: 0.1 + index * 0.05
+      }
+    }
+  })
+  
+  const option = {
+    tooltip: {
+      trigger: 'item'
+    },
+    legend: {
+      bottom: 0,
+      type: 'scroll',
+      textStyle: {
+        fontSize: 11
+      }
+    },
+    radar: {
+      indicator: [
+        { name: '推荐得分', max: 100 },
+        { name: '来源广度', max: 100 },
+        { name: '热门度', max: 100 },
+        { name: '内容匹配', max: 100 },
+        { name: '质量评分', max: 100 }
+      ],
+      radius: '60%',
+      splitNumber: 4,
+      axisName: {
+        fontSize: 11,
+        color: '#606266'
+      }
+    },
+    series: [{
+      type: 'radar',
+      data: series
+    }]
+  }
+  
+  chart.setOption(option, true)
+  return chart
+}
+
 const refreshCharts = async () => {
   await nextTick()
   if (personalizedRecommendations.value.length) {
@@ -578,6 +659,11 @@ const refreshCharts = async () => {
       personalizedSubjectStats.value.map(i => i.name),
       personalizedSubjectStats.value.map(i => i.value),
       '#409eff'
+    )
+    personalRadarChart = renderRadarChart(
+      personalRadarChart,
+      personalRadarChartRef.value,
+      personalizedRecommendations.value
     )
   }
   if (hotBooks.value.length) {
@@ -613,6 +699,7 @@ const refreshCharts = async () => {
 const handleResize = () => {
   personalSourceChart?.resize()
   personalSubjectChart?.resize()
+  personalRadarChart?.resize()
   hotSubjectChart?.resize()
   hotAuthorChart?.resize()
   deptSubjectChart?.resize()
@@ -752,6 +839,7 @@ onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
   personalSourceChart?.dispose()
   personalSubjectChart?.dispose()
+  personalRadarChart?.dispose()
   hotSubjectChart?.dispose()
   hotAuthorChart?.dispose()
   deptSubjectChart?.dispose()

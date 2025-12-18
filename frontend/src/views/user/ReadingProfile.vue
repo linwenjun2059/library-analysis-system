@@ -156,10 +156,144 @@
           </div>
         </el-card>
 
-        <!-- 偏好列表（标签展示） -->
+        <!-- 阅读目标进度环 -->
+        <el-card shadow="hover" style="margin-bottom: 20px;" class="progress-card">
+          <template #header>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <el-icon><Trophy /></el-icon>
+              <span>年度阅读目标</span>
+            </div>
+          </template>
+          <el-row :gutter="20">
+            <el-col :xs="24" :md="12">
+              <div class="progress-ring-container">
+                <div class="progress-rings">
+                  <div class="ring-item">
+                    <div class="ring-wrapper">
+                      <svg class="progress-ring" width="160" height="160">
+                        <circle
+                          class="progress-ring-circle-bg"
+                          :r="70"
+                          cx="80"
+                          cy="80"
+                        />
+                        <circle
+                          class="progress-ring-circle"
+                          :r="70"
+                          cx="80"
+                          cy="80"
+                          :stroke-dasharray="`${borrowProgress} ${440 - borrowProgress}`"
+                          style="stroke: #409eff;"
+                        />
+                      </svg>
+                      <div class="ring-text">
+                        <div class="ring-value">{{ profile?.totalBorrowCount || 0 }}</div>
+                        <div class="ring-label">本</div>
+                        <div class="ring-target">目标: {{ yearlyBorrowTarget }}</div>
+                      </div>
+                    </div>
+                    <div class="ring-title">借阅目标</div>
+                  </div>
+                  
+                  <div class="ring-item">
+                    <div class="ring-wrapper">
+                      <svg class="progress-ring" width="160" height="160">
+                        <circle
+                          class="progress-ring-circle-bg"
+                          :r="70"
+                          cx="80"
+                          cy="80"
+                        />
+                        <circle
+                          class="progress-ring-circle"
+                          :r="70"
+                          cx="80"
+                          cy="80"
+                          :stroke-dasharray="`${breadthProgress} ${440 - breadthProgress}`"
+                          style="stroke: #67c23a;"
+                        />
+                      </svg>
+                      <div class="ring-text">
+                        <div class="ring-value">{{ profile?.readingBreadth || 0 }}</div>
+                        <div class="ring-label">类</div>
+                        <div class="ring-target">目标: {{ yearlyBreadthTarget }}</div>
+                      </div>
+                    </div>
+                    <div class="ring-title">主题广度</div>
+                  </div>
+                </div>
+                <div class="progress-tips">
+                  <el-alert
+                    v-if="borrowProgressPercent >= 100"
+                    title="🎉 恭喜完成年度借阅目标！"
+                    type="success"
+                    :closable="false"
+                  />
+                  <el-alert
+                    v-else-if="borrowProgressPercent >= 80"
+                    title="💪 加油！距离目标只差一步了！"
+                    type="warning"
+                    :closable="false"
+                  />
+                  <el-alert
+                    v-else
+                    :title="`还需借阅 ${yearlyBorrowTarget - (profile?.totalBorrowCount || 0)} 本即可达成目标`"
+                    type="info"
+                    :closable="false"
+                  />
+                </div>
+              </div>
+            </el-col>
+            
+            <el-col :xs="24" :md="12">
+              <div class="achievement-list">
+                <h4 style="margin-bottom: 15px; color: #303133;">📊 阅读成就</h4>
+                <div class="achievement-item" :class="{ achieved: profile?.totalBorrowCount >= 10 }">
+                  <el-icon><Medal /></el-icon>
+                  <span>初级读者 (10本)</span>
+                  <el-tag v-if="profile?.totalBorrowCount >= 10" type="success" size="small">已达成</el-tag>
+                </div>
+                <div class="achievement-item" :class="{ achieved: profile?.totalBorrowCount >= 50 }">
+                  <el-icon><Medal /></el-icon>
+                  <span>中级读者 (50本)</span>
+                  <el-tag v-if="profile?.totalBorrowCount >= 50" type="success" size="small">已达成</el-tag>
+                </div>
+                <div class="achievement-item" :class="{ achieved: profile?.totalBorrowCount >= 100 }">
+                  <el-icon><Trophy /></el-icon>
+                  <span>高级读者 (100本)</span>
+                  <el-tag v-if="profile?.totalBorrowCount >= 100" type="success" size="small">已达成</el-tag>
+                </div>
+                <div class="achievement-item" :class="{ achieved: profile?.readingBreadth >= 10 }">
+                  <el-icon><Star /></el-icon>
+                  <span>博览群书 (10类)</span>
+                  <el-tag v-if="profile?.readingBreadth >= 10" type="success" size="small">已达成</el-tag>
+                </div>
+                <div class="achievement-item" :class="{ achieved: (profile?.overdueRate || 1) === 0 }">
+                  <el-icon><CircleCheck /></el-icon>
+                  <span>完美守时 (0逾期)</span>
+                  <el-tag v-if="(profile?.overdueRate || 1) === 0" type="success" size="small">已达成</el-tag>
+                </div>
+              </div>
+            </el-col>
+          </el-row>
+        </el-card>
+
+        <!-- 阅读主题极坐标图 + 偏好列表 -->
         <el-row :gutter="20" style="margin-bottom: 20px;">
-          <el-col :span="12">
+          <el-col :xs="24" :lg="14">
             <el-card shadow="hover">
+              <template #header>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <el-icon><PieChart /></el-icon>
+                  <span>阅读主题分布（极坐标）</span>
+                </div>
+              </template>
+              <div ref="polarChartRef" style="width: 100%; height: 400px;"></div>
+            </el-card>
+          </el-col>
+          
+          <el-col :xs="24" :lg="10">
+            <el-card shadow="hover" style="margin-bottom: 20px;">
               <template #header>
                 <div style="display: flex; align-items: center; gap: 8px;">
                   <el-icon><Reading /></el-icon>
@@ -180,9 +314,7 @@
                 <el-empty v-if="topSubjects.length === 0" description="暂无偏好主题" />
               </div>
             </el-card>
-          </el-col>
-
-          <el-col :span="12">
+            
             <el-card shadow="hover">
               <template #header>
                 <div style="display: flex; align-items: center; gap: 8px;">
@@ -258,7 +390,7 @@ import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
 import { 
   Avatar, Refresh, Star, Reading, Location, DataAnalysis, 
-  Clock, Calendar, CollectionTag 
+  Clock, Calendar, CollectionTag, Trophy, Medal, CircleCheck, PieChart 
 } from '@element-plus/icons-vue'
 
 const userStore = useUserStore()
@@ -271,13 +403,40 @@ const userClusterInfo = ref(null)
 const radarChartRef = ref(null)
 const timeDistChartRef = ref(null)
 const weekDistChartRef = ref(null)
+const polarChartRef = ref(null)
 
 let radarChart = null
 let timeDistChart = null
 let weekDistChart = null
+let polarChart = null
 
 const topSubjects = computed(() => parseJsonArray(profile.value?.favoriteSubjects || '[]').slice(0, 3))
 const topLocations = computed(() => parseJsonArray(profile.value?.favoriteLocations || '[]').slice(0, 3))
+
+// 年度目标设置
+const yearlyBorrowTarget = ref(50)
+const yearlyBreadthTarget = ref(10)
+
+// 进度计算
+const borrowProgressPercent = computed(() => {
+  if (!profile.value) return 0
+  return Math.min((profile.value.totalBorrowCount / yearlyBorrowTarget.value) * 100, 100)
+})
+
+const breadthProgressPercent = computed(() => {
+  if (!profile.value) return 0
+  return Math.min((profile.value.readingBreadth / yearlyBreadthTarget.value) * 100, 100)
+})
+
+const borrowProgress = computed(() => {
+  const circumference = 2 * Math.PI * 70
+  return (borrowProgressPercent.value / 100) * circumference
+})
+
+const breadthProgress = computed(() => {
+  const circumference = 2 * Math.PI * 70
+  return (breadthProgressPercent.value / 100) * circumference
+})
 
 // 解析JSON数组
 const parseJsonArray = (jsonStr) => {
@@ -566,6 +725,84 @@ const initWeekDistChart = () => {
   weekDistChart.setOption(option)
 }
 
+// 初始化极坐标图
+const initPolarChart = () => {
+  if (!polarChartRef.value || !lendRecords.value.length) return
+
+  if (!polarChart) {
+    polarChart = echarts.init(polarChartRef.value)
+  }
+
+  // 统计各主题的借阅次数
+  const subjectCounts = {}
+  lendRecords.value.forEach(record => {
+    const subject = record.subject || '未知主题'
+    subjectCounts[subject] = (subjectCounts[subject] || 0) + 1
+  })
+
+  // 转换为数组并排序
+  const subjectData = Object.entries(subjectCounts)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 12) // 取前12个主题
+
+  const categories = subjectData.map(item => item.name)
+  const values = subjectData.map(item => item.value)
+
+  const option = {
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'shadow'
+      }
+    },
+    angleAxis: {
+      type: 'category',
+      data: categories,
+      axisLabel: {
+        interval: 0,
+        fontSize: 11,
+        color: '#606266',
+        formatter: (value) => {
+          return value.length > 6 ? value.substring(0, 6) + '...' : value
+        }
+      }
+    },
+    radiusAxis: {
+      name: '借阅次数',
+      nameTextStyle: {
+        fontSize: 12,
+        color: '#909399'
+      }
+    },
+    polar: {
+      radius: ['15%', '75%']
+    },
+    series: [{
+      type: 'bar',
+      data: values,
+      coordinateSystem: 'polar',
+      itemStyle: {
+        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+          { offset: 0, color: '#409eff' },
+          { offset: 1, color: '#67c23a' }
+        ]),
+        borderRadius: [4, 4, 0, 0]
+      },
+      label: {
+        show: true,
+        position: 'middle',
+        formatter: '{c}',
+        fontSize: 10,
+        color: '#fff',
+        fontWeight: 'bold'
+      }
+    }]
+  }
+
+  polarChart.setOption(option)
+}
+
 const loadData = async () => {
   try {
     loading.value = true
@@ -607,6 +844,7 @@ const loadData = async () => {
       initRadarChart()
       initTimeDistChart()
       initWeekDistChart()
+      initPolarChart()
       console.log('✅ 阅读画像加载成功')
     }, 300)
 
@@ -625,6 +863,7 @@ onMounted(() => {
     radarChart?.resize()
     timeDistChart?.resize()
     weekDistChart?.resize()
+    polarChart?.resize()
   })
 })
 
@@ -632,6 +871,7 @@ onUnmounted(() => {
   radarChart?.dispose()
   timeDistChart?.dispose()
   weekDistChart?.dispose()
+  polarChart?.dispose()
 })
 </script>
 
@@ -680,6 +920,124 @@ onUnmounted(() => {
 
     .cluster-characteristics {
       margin-bottom: 10px;
+    }
+  }
+
+  .progress-card {
+    .progress-ring-container {
+      .progress-rings {
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        gap: 20px;
+      }
+
+      .ring-item {
+        text-align: center;
+
+        .ring-wrapper {
+          position: relative;
+          display: inline-block;
+          margin-bottom: 10px;
+
+          .progress-ring {
+            transform: rotate(-90deg);
+          }
+
+          .progress-ring-circle-bg {
+            fill: none;
+            stroke: #f0f0f0;
+            stroke-width: 12;
+          }
+
+          .progress-ring-circle {
+            fill: none;
+            stroke-width: 12;
+            stroke-linecap: round;
+            transition: stroke-dasharray 0.6s ease;
+          }
+
+          .ring-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+
+            .ring-value {
+              font-size: 32px;
+              font-weight: bold;
+              color: #303133;
+              line-height: 1;
+            }
+
+            .ring-label {
+              font-size: 14px;
+              color: #909399;
+              margin-top: 2px;
+            }
+
+            .ring-target {
+              font-size: 12px;
+              color: #c0c4cc;
+              margin-top: 8px;
+            }
+          }
+        }
+
+        .ring-title {
+          font-size: 15px;
+          color: #606266;
+          font-weight: 600;
+        }
+      }
+
+      .progress-tips {
+        margin-top: 15px;
+      }
+    }
+
+    .achievement-list {
+      .achievement-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 15px;
+        margin-bottom: 10px;
+        border-radius: 8px;
+        background: #f5f7fa;
+        transition: all 0.3s;
+        opacity: 0.6;
+
+        &.achieved {
+          opacity: 1;
+          background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+          box-shadow: 0 2px 8px rgba(76, 175, 80, 0.2);
+
+          .el-icon {
+            color: #67c23a;
+            font-size: 20px;
+          }
+        }
+
+        .el-icon {
+          font-size: 18px;
+          color: #909399;
+        }
+
+        span {
+          flex: 1;
+          font-size: 14px;
+          color: #303133;
+          font-weight: 500;
+        }
+
+        &:hover {
+          transform: translateX(5px);
+        }
+      }
     }
   }
 }

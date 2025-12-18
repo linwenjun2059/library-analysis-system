@@ -63,8 +63,8 @@
                 <span>免密登录说明</span>
               </div>
               <p class="info-text">学生/教师可使用数据集中的USERID进行免密登录</p>
-              <div class="test-account" @click="useTestUserId('4fc844c094896fc30349e7fa667ffb9b')">
-                <span class="account">4fc844c094896fc30349e7fa667ffb9b</span>
+              <div class="test-account" @click="useTestUserId('0af18416f84c262f3fadfcdee9801b4f')">
+                <span class="account">0af18416f84c262f3fadfcdee9801b4f</span>
                 <el-icon class="copy-icon"><CopyDocument /></el-icon>
               </div>
               <p class="hint">💡 点击上方测试账号自动填入</p>
@@ -165,7 +165,7 @@
     
     <!-- 页脚 -->
     <div class="login-footer">
-      <p>© 2025 Library Analysis System. All rights reserved.</p>
+
     </div>
   </div>
 </template>
