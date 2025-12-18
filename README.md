@@ -133,8 +133,8 @@
                        ▼
 ┌─────────────────────────────────────────────────────────┐
 │  DWD层 (明细数据层)                                       │
-│  - dwd_user_dimension: 用户维度表                        │
-│  - dwd_book_dimension: 图书维度表                        │
+│  - dwd_user_info: 用户维度表                             │
+│  - dwd_book_info: 图书维度表                             │
 │  - dwd_lend_detail: 借阅明细事实表                       │
 └──────────────────────┬──────────────────────────────────┘
                        │ Spark数据汇总
@@ -163,6 +163,8 @@
 │  - ads_time_distribution: 时间分布分析                   │
 │  - ads_user_ranking: 用户排名                            │
 │  - ads_book_recommend_base: 图书推荐基础表                │
+│  - ads_book_association: 图书关联规则（可选）             │
+│  - ads_user_cluster: 用户聚类分群（可选）                 │
 └──────────────────────┬──────────────────────────────────┘
                        │ Spark数据导出
                        ▼
@@ -255,7 +257,7 @@ library-analysis-system/
 - **Hive**: 3.1.2
 - **Spark**: 3.5.6
 - **MySQL**: 8.0.33+
-- **Python**: 3.6+
+- **Python**: 3.8+
 
 #### 可选组件（前后端）
 - **Node.js**: 16+
@@ -298,10 +300,11 @@ mysql -uroot -p library_analysis -e "SHOW TABLES;"
 #### 3. 准备数据文件
 
 将CSV数据文件上传到Hadoop集群：
+（原始数据为逗号分隔CSV，Spark脚本按逗号分隔读取）
 
 ```bash
 # 上传到HDFS
-hdfs dfs -put data/LENDHIST2019_2020.csv /user/hadoop/
+hdfs dfs -put data/LENDHIST2019_2020.csv /data/library/raw/
 ```
 
 #### 4. 安装Python依赖
@@ -360,7 +363,7 @@ bash verify.sh
 
 ## 👥 用户角色与功能
 
-### 🔴 高级管理员（userType=1）
+### 🔴 系统管理员（高级管理员）（userType=1）
 
 **战略决策层**，负责整体运营分析和数据挖掘：
 
@@ -494,7 +497,7 @@ bash verify.sh
 - **ODS层**：原始数据存储，直接映射CSV文件结构
 - **DWD层**：数据清洗，生成用户、图书维度表和借阅明细事实表
 - **DWS层**：数据汇总，按用户、图书、院系、主题、日期维度汇总
-- **ADS层**：应用数据，生成12张分析表供业务系统使用
+- **ADS层**：应用数据，生成12张核心分析表供业务系统使用（高级数据挖掘可选生成关联规则/用户聚类等附加表）
 
 ### 2. 统计分析
 
@@ -541,38 +544,44 @@ spring:
   datasource:
     url: jdbc:mysql://master:3306/library_analysis
     username: root
-    password: 780122
+    password: your_password
 
 jwt:
-  secret: library-analysis-system-secret-key-2025
+  secret: your_jwt_secret
   expiration: 604800  # 7天
 ```
 
 ### 前端配置
 
-编辑 `frontend/src/utils/request.js`，修改API基础地址：
+前端默认通过 `baseURL: '/api'` 访问后端，开发环境由 Vite 代理转发（见 `frontend/vite.config.js` 的 `server.proxy`）。
 
 ```javascript
-const service = axios.create({
-  baseURL: 'http://localhost:8080/api',
-  timeout: 5000
+const request = axios.create({
+  baseURL: '/api',
+  timeout: 30000
 })
 ```
 
 ### 大数据配置
 
-编辑 `deploy/config.sh`，配置集群信息：
+编辑 `deploy/config.sh`，配置运行环境信息（默认示例为 Linux/集群路径与主机名，Windows 建议使用 WSL 或在远程 Linux 节点执行，并按实际环境修改）：
 
 ```bash
-# Hadoop配置
-HDFS_BASE_PATH=/user/hadoop
-HIVE_WAREHOUSE=/user/hive/warehouse
+# HDFS路径配置
+export HDFS_RAW_PATH="/data/library/raw"
+export LOCAL_CSV_FILE="/opt/project/library-analysis-system/data/LENDHIST2019_2020.csv"
+
+# Spark脚本目录
+export PYTHON_SCRIPT_DIR="/opt/project/library-analysis-system/bigdata/spark"
 
 # MySQL配置
-MYSQL_HOST=master
-MYSQL_USER=root
-MYSQL_PASSWORD=780122
-MYSQL_DB=library_analysis
+export MYSQL_HOST="master"
+export MYSQL_USER="root"
+export MYSQL_PASSWORD="your_password"
+export MYSQL_DATABASE="library_analysis"
+
+# MySQL JDBC驱动
+export MYSQL_JDBC_JAR="/opt/app/spark/jars/mysql-connector-j-8.0.33.jar"
 ```
 
 ## 📝 数据库设计
