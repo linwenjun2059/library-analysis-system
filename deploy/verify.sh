@@ -96,16 +96,16 @@ verify_step2() {
             return 1
         fi
         
-        echo -e "\n检查ADS层表（12张）..."
+        echo -e "\n检查ADS层表（14张）..."
         ADS_TABLES=$(hive -S -e "USE library_ads; SHOW TABLES" 2>/dev/null | grep -v "^$" | grep -v "^OK$")
         if [ -n "$ADS_TABLES" ]; then
             echo "$ADS_TABLES"
-            # 验证12张表都存在（过滤空行和OK标记）
+            # 验证14张表都存在（过滤空行和OK标记）
             ADS_COUNT=$(echo "$ADS_TABLES" | grep -v "^$" | grep -v "^OK$" | wc -l)
-            if [ "$ADS_COUNT" -ge 12 ]; then
-                print_success "✓ ✓ ADS层12张表已创建"
+            if [ "$ADS_COUNT" -ge 14 ]; then
+                print_success "✓ ✓ ADS层14张表已创建"
             else
-                print_warning "⚠ ADS层表数量不足12张（当前: $ADS_COUNT）"
+                print_warning "⚠ ADS层表数量不足14张（当前: $ADS_COUNT）"
             fi
         else
             print_error "✗ ADS层表不存在"
@@ -231,7 +231,7 @@ verify_step4() {
 verify_step5() {
     print_header "验证步骤5: Spark数据分析（ADS层）"
     
-    echo "检查ADS层分析表（12张表）..."
+    echo "检查ADS层分析表（14张表）..."
     echo ""
     
     echo "基础分析表（5张）:"
@@ -257,8 +257,8 @@ verify_step5() {
     echo "   运营看板: ${DASHBOARD:-0}"
     
     echo ""
-    echo "高级管理员功能表（3张）:"
-    # 6-8: 高级管理员功能表
+    echo "高级管理员功能表（5张）:"
+    # 6-10: 高级管理员功能表
     echo "6. 查询用户画像表..."
     USER_PROFILE=$(hive -S -e "SELECT COUNT(*) FROM library_ads.ads_user_profile" 2>&1 | grep -E '^[0-9]+$' | tail -1)
     echo "   用户画像: ${USER_PROFILE:-0}"
@@ -271,25 +271,33 @@ verify_step5() {
     COLLECTION_UTIL=$(hive -S -e "SELECT COUNT(*) FROM library_ads.ads_collection_utilization" 2>&1 | grep -E '^[0-9]+$' | tail -1)
     echo "   馆藏利用: ${COLLECTION_UTIL:-0}"
     
+    echo "9. 查询出版社分析表..."
+    PUBLISHER=$(hive -S -e "SELECT COUNT(*) FROM library_ads.ads_publisher_analysis" 2>&1 | grep -E '^[0-9]+$' | tail -1)
+    echo "   出版社分析: ${PUBLISHER:-0}"
+    
+    echo "10. 查询出版年份分析表..."
+    PUBLISH_YEAR=$(hive -S -e "SELECT COUNT(*) FROM library_ads.ads_publish_year_analysis" 2>&1 | grep -E '^[0-9]+$' | tail -1)
+    echo "   出版年份分析: ${PUBLISH_YEAR:-0}"
+    
     echo ""
     echo "图书管理员功能表（2张）:"
-    # 9-10: 图书管理员功能表
-    echo "9. 查询逾期分析表..."
+    # 11-12: 图书管理员功能表
+    echo "11. 查询逾期分析表..."
     OVERDUE=$(hive -S -e "SELECT COUNT(*) FROM library_ads.ads_overdue_analysis" 2>&1 | grep -E '^[0-9]+$' | tail -1)
     echo "    逾期分析: ${OVERDUE:-0}"
     
-    echo "10. 查询时间分布表..."
+    echo "12. 查询时间分布表..."
     TIME_DIST=$(hive -S -e "SELECT COUNT(*) FROM library_ads.ads_time_distribution" 2>&1 | grep -E '^[0-9]+$' | tail -1)
     echo "    时间分布: ${TIME_DIST:-0}"
     
     echo ""
     echo "普通用户功能表（2张）:"
-    # 11-12: 普通用户功能表
-    echo "11. 查询用户排名表..."
+    # 13-14: 普通用户功能表
+    echo "13. 查询用户排名表..."
     USER_RANK=$(hive -S -e "SELECT COUNT(*) FROM library_ads.ads_user_ranking" 2>&1 | grep -E '^[0-9]+$' | tail -1)
     echo "    用户排名: ${USER_RANK:-0}"
     
-    echo "12. 查询推荐基础表..."
+    echo "14. 查询推荐基础表..."
     RECOMMEND_BASE=$(hive -S -e "SELECT COUNT(*) FROM library_ads.ads_book_recommend_base" 2>&1 | grep -E '^[0-9]+$' | tail -1)
     echo "    推荐基础: ${RECOMMEND_BASE:-0}"
     
@@ -309,7 +317,7 @@ verify_step5() {
     
     # 验证所有表都有数据（至少基础表必须有数据）
     if [ "$HOT_BOOKS" -gt 0 ] && [ "$ACTIVE_USERS" -gt 0 ] && [ "$DEPT_PREF" -gt 0 ] && [ "$LEND_TREND" -gt 0 ] && [ "$DASHBOARD" -gt 0 ] 2>/dev/null; then
-        print_success "✓ ADS层分析完成，12张表数据已写入"
+        print_success "✓ ADS层分析完成，14张表数据已写入"
         
         # 检查功能表
         NON_EMPTY=0
@@ -387,14 +395,14 @@ verify_step7() {
 }
 
 # =============================================
-# 验证步骤6: 导出所有表到MySQL（20张表）⭐
+# 验证步骤6: 导出所有表到MySQL（22张表）⭐
 # =============================================
 verify_step6() {
-    print_header "验证步骤6: 导出所有表到MySQL（20张表）"
+    print_header "验证步骤6: 导出所有表到MySQL（22张表）"
     
     echo "检查MySQL表导出结果..."
     
-    # 定义20张表（不包括book_recommendations等推荐表，它们由步骤7单独生成）
+    # 定义22张表（不包括book_recommendations等推荐表，它们由步骤7单独生成）
     TABLES=(
         "user_dimension"
         "book_dimension"
@@ -411,8 +419,10 @@ verify_step6() {
         "operation_dashboard"
         "user_profile"
         "major_reading_profile"
-        "overdue_analysis"
         "collection_utilization_analysis"
+        "publisher_analysis"
+        "publish_year_analysis"
+        "overdue_analysis"
         "time_distribution"
         "user_ranking"
         "book_recommend_base"
@@ -442,11 +452,11 @@ verify_step6() {
     
     echo ""
     echo "验证汇总："
-    echo "  成功：${SUCCESS_COUNT}/20"
-    echo "  失败：${#FAILED_TABLES[@]}/20"
+    echo "  成功：${SUCCESS_COUNT}/22"
+    echo "  失败：${#FAILED_TABLES[@]}/22"
     
     if [ ${#FAILED_TABLES[@]} -eq 0 ]; then
-        print_success "✓ 所有20张表验证通过！"
+        print_success "✓ 所有22张表验证通过！"
         
         # 显示详细统计
         echo -e "\n各表数据量："
@@ -654,8 +664,8 @@ show_usage() {
   2 - 验证Hive表结构
   3 - 验证数据清洗（DWD层，3张表）
   4 - 验证数据汇总（DWS层，5张表）
-  5 - 验证数据分析（ADS层，12张表）
-  6 - 验证导出MySQL（20张表）
+  5 - 验证数据分析（ADS层，14张表）
+  6 - 验证导出MySQL（22张表）
   7 - 验证推荐算法（2张表）【可选】
   8 - 验证高级挖掘（3张表）【可选】
   9 - 验证预测模型（3张表）【可选】

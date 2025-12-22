@@ -294,7 +294,7 @@ const useAdminAccount = (username, password) => {
   align-items: center;
   width: 100%;
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #1e88e5 0%, #1565c0 100%);
   overflow: hidden;
 }
 
@@ -334,10 +334,10 @@ const useAdminAccount = (username, password) => {
   justify-content: center;
   width: 80px;
   height: 80px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #1e88e5 0%, #1565c0 100%);
   border-radius: 16px;
   margin-bottom: 20px;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 4px 12px rgba(30, 136, 229, 0.3);
 }
 
 .title {

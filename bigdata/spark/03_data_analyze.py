@@ -49,7 +49,7 @@ class DataAnalyzer:
     def build_hot_books(self):
         """构建热门图书排行（TOP 100）"""
         print("\n" + "=" * 60)
-        print("[1/12] 构建热门图书排行...")
+        print("[1/14] 构建热门图书排行...")
         
         book_info_latest = self.book_info.groupBy("book_id").agg(
             first("title").alias("title"),
@@ -80,7 +80,7 @@ class DataAnalyzer:
     def build_active_users(self):
         """构建活跃用户排行（TOP 100）"""
         print("\n" + "=" * 60)
-        print("[2/12] 构建活跃用户排行...")
+        print("[2/14] 构建活跃用户排行...")
         
         user_info_latest = self.user_info.groupBy("userid").agg(
             first("dept").alias("dept"),
@@ -109,7 +109,7 @@ class DataAnalyzer:
     def build_dept_preference(self):
         """构建院系偏好分析"""
         print("\n" + "=" * 60)
-        print("[3/12] 构建院系偏好分析...")
+        print("[3/14] 构建院系偏好分析...")
         
         dept_preference = self.dept_summary.select(
             col("dept"),
@@ -129,7 +129,7 @@ class DataAnalyzer:
     def build_lend_trend(self):
         """构建借阅趋势"""
         print("\n" + "=" * 60)
-        print("[4/12] 构建借阅趋势...")
+        print("[4/14] 构建借阅趋势...")
         
         lend_detail = self.spark.table("library_dwd.dwd_lend_detail")
         
@@ -179,7 +179,7 @@ class DataAnalyzer:
     def build_operation_dashboard(self):
         """构建运营看板"""
         print("\n" + "=" * 60)
-        print("[5/12] 构建运营看板...")
+        print("[5/14] 构建运营看板...")
         
         total_users = self.user_summary.count()
         total_books = self.book_summary.count()
@@ -277,7 +277,7 @@ class DataAnalyzer:
     def build_user_profile(self):
         """构建用户画像分析（高级管理员）"""
         print("\n" + "=" * 60)
-        print("[6/12] 构建用户画像分析...")
+        print("[6/14] 构建用户画像分析...")
         
         from pyspark.sql import functions as F
         
@@ -420,7 +420,7 @@ class DataAnalyzer:
     def build_major_reading_profile(self):
         """构建专业阅读特征分析（高级管理员）"""
         print("\n" + "=" * 60)
-        print("[7/12] 构建专业阅读特征分析...")
+        print("[7/14] 构建专业阅读特征分析...")
         
         # 加载明细数据
         lend_detail = self.spark.table("library_dwd.dwd_lend_detail")
@@ -519,7 +519,7 @@ class DataAnalyzer:
     def build_overdue_analysis(self):
         """构建逾期分析（图书管理员）"""
         print("\n" + "=" * 60)
-        print("[8/12] 构建逾期分析...")
+        print("[11/14] 构建逾期分析...")
         
         # 逾期阈值改为 90 天；未归还记录不计入逾期，仅标记为“待归还”
         overdue_threshold = 90
@@ -662,7 +662,7 @@ class DataAnalyzer:
     def build_collection_utilization(self):
         """构建馆藏利用分析（高级管理员）"""
         print("\n" + "=" * 60)
-        print("[9/12] 构建馆藏利用分析...")
+        print("[8/14] 构建馆藏利用分析...")
         
         # 说明：删除流通率字段（数据源限制导致无分析价值），保留周转率等有价值的指标
         # 周转率 = 总借阅次数 / 馆藏总数 / 时间跨度(2年)
@@ -798,7 +798,7 @@ class DataAnalyzer:
     def build_time_distribution(self):
         """构建时间分布分析（图书管理员）"""
         print("\n" + "=" * 60)
-        print("[10/12] 构建时间分布分析...")
+        print("[12/14] 构建时间分布分析...")
         
         lend_detail = self.spark.table("library_dwd.dwd_lend_detail")
         
@@ -891,7 +891,7 @@ class DataAnalyzer:
     def build_user_ranking(self):
         """构建用户排名（普通用户）"""
         print("\n" + "=" * 60)
-        print("[11/12] 构建用户排名...")
+        print("[13/14] 构建用户排名...")
         
         # 获取用户信息
         user_info_agg = self.user_info.groupBy("userid").agg(
@@ -949,7 +949,7 @@ class DataAnalyzer:
     def build_book_recommend_base(self):
         """构建图书推荐基础表（普通用户）"""
         print("\n" + "=" * 60)
-        print("[12/12] 构建图书推荐基础表...")
+        print("[14/14] 构建图书推荐基础表...")
         
         book_info_agg = self.book_info.groupBy("book_id").agg(
             first("title").alias("title"),
@@ -1008,6 +1008,95 @@ class DataAnalyzer:
         
         print(f"✓ 图书推荐基础表完成: {recommend_base.count():,} 条推荐")
     
+    def build_publisher_analysis(self):
+        """构建出版社分析表（高级管理员）"""
+        print("\n" + "=" * 60)
+        print("[9/14] 构建出版社分析表...")
+        
+        lend_detail = self.spark.table("library_dwd.dwd_lend_detail")
+        
+        # 获取图书的出版社信息
+        book_publisher = self.book_info.groupBy("book_id").agg(
+            first("publisher").alias("publisher")
+        ).filter(col("publisher").isNotNull() & (col("publisher") != ""))
+        
+        # 按出版社统计图书数量
+        publisher_book_count = book_publisher.groupBy("publisher").agg(
+            countDistinct("book_id").alias("book_count")
+        )
+        
+        # 按出版社统计借阅情况
+        publisher_lend_stats = lend_detail.join(book_publisher, "book_id") \
+            .groupBy("publisher") \
+            .agg(
+                count("*").alias("total_lend_count"),
+                countDistinct("userid").alias("total_user_count")
+            )
+        
+        # 合并统计并计算平均借阅次数，添加排名
+        publisher_analysis = publisher_book_count \
+            .join(publisher_lend_stats, "publisher", "left") \
+            .select(
+                col("publisher"),
+                col("book_count"),
+                coalesce(col("total_lend_count"), lit(0)).alias("total_lend_count"),
+                coalesce(col("total_user_count"), lit(0)).alias("total_user_count"),
+                when(col("book_count") > 0,
+                     round(coalesce(col("total_lend_count"), lit(0)) / col("book_count"), 2))
+                .otherwise(lit(0.0)).alias("avg_lend_count")
+            ) \
+            .withColumn("rank_no", row_number().over(Window.orderBy(desc("total_lend_count")))) \
+            .filter(col("rank_no") <= 50)
+        
+        publisher_analysis.write \
+            .mode("overwrite") \
+            .format("parquet") \
+            .saveAsTable("library_ads.ads_publisher_analysis")
+        
+        print(f"✓ 出版社分析完成: {publisher_analysis.count():,} 个出版社")
+    
+    def build_publish_year_analysis(self):
+        """构建出版年份分析表（高级管理员）"""
+        print("\n" + "=" * 60)
+        print("[10/14] 构建出版年份分析表...")
+        
+        lend_detail = self.spark.table("library_dwd.dwd_lend_detail")
+        
+        # 获取图书的出版年份信息
+        book_year = self.book_info.groupBy("book_id").agg(
+            first("pub_year").alias("pub_year")
+        ).filter(col("pub_year").isNotNull())
+        
+        # 按出版年份统计图书数量
+        year_book_count = book_year.groupBy("pub_year").agg(
+            countDistinct("book_id").alias("book_count")
+        )
+        
+        # 按出版年份统计借阅情况
+        year_lend_stats = lend_detail.join(book_year, "book_id") \
+            .groupBy("pub_year") \
+            .agg(count("*").alias("total_lend_count"))
+        
+        # 合并统计并计算平均借阅次数
+        year_analysis = year_book_count \
+            .join(year_lend_stats, "pub_year", "left") \
+            .select(
+                col("pub_year"),
+                col("book_count"),
+                coalesce(col("total_lend_count"), lit(0)).alias("total_lend_count"),
+                when(col("book_count") > 0,
+                     round(coalesce(col("total_lend_count"), lit(0)) / col("book_count"), 2))
+                .otherwise(lit(0.0)).alias("avg_lend_count")
+            ) \
+            .orderBy(desc("pub_year"))
+        
+        year_analysis.write \
+            .mode("overwrite") \
+            .format("parquet") \
+            .saveAsTable("library_ads.ads_publish_year_analysis")
+        
+        print(f"✓ 出版年份分析完成: {year_analysis.count():,} 个年份")
+    
     def run(self):
         """运行分析流程"""
         print("\n" + "█" * 60)
@@ -1024,21 +1113,23 @@ class DataAnalyzer:
             self.build_lend_trend()
             self.build_operation_dashboard()
             
-            # 高级管理员功能表（新增3张）
+            # 高级管理员功能表（5张）
             self.build_user_profile()
             self.build_major_reading_profile()
             self.build_collection_utilization()
+            self.build_publisher_analysis()
+            self.build_publish_year_analysis()
             
-            # 图书管理员功能表（新增2张）
+            # 图书管理员功能表（2张）
             self.build_overdue_analysis()
             self.build_time_distribution()
             
-            # 普通用户功能表（新增2张）
+            # 普通用户功能表（2张）
             self.build_user_ranking()
             self.build_book_recommend_base()
             
             print("\n" + "█" * 60)
-            print("✅ ADS层构建完成（12张分析表）")
+            print("✅ ADS层构建完成（14张分析表）")
             print("█" * 60)
             print("基础分析表（5张）：")
             print("  1. ads_hot_books           - 热门图书TOP100")
@@ -1046,16 +1137,18 @@ class DataAnalyzer:
             print("  3. ads_dept_preference     - 院系偏好分析")
             print("  4. ads_lend_trend          - 借阅趋势")
             print("  5. ads_operation_dashboard - 运营看板")
-            print("\n高级管理员功能表（3张）：")
+            print("\n高级管理员功能表（5张）：")
             print("  6. ads_user_profile        - 用户画像分析")
             print("  7. ads_major_reading_profile - 专业阅读特征")
             print("  8. ads_collection_utilization - 馆藏利用分析")
+            print("  9. ads_publisher_analysis  - 出版社分析")
+            print(" 10. ads_publish_year_analysis - 出版年份分析")
             print("\n图书管理员功能表（2张）：")
-            print("  9. ads_overdue_analysis    - 逾期分析")
-            print(" 10. ads_time_distribution   - 时间分布分析")
+            print(" 11. ads_overdue_analysis    - 逾期分析")
+            print(" 12. ads_time_distribution   - 时间分布分析")
             print("\n普通用户功能表（2张）：")
-            print(" 11. ads_user_ranking        - 用户排名")
-            print(" 12. ads_book_recommend_base - 图书推荐基础表")
+            print(" 13. ads_user_ranking        - 用户排名")
+            print(" 14. ads_book_recommend_base - 图书推荐基础表")
             print("█" * 60)
             
         except Exception as e:

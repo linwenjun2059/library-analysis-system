@@ -1,6 +1,6 @@
 -- =============================================
 -- 图书馆借阅分析系统 - MySQL数据库初始化脚本
--- 包含29张表：维度表(3) + 汇总表(5) + 聚合表(5) + 推荐与功能表(9) + 挖掘表(3) + 预测表(3) + 系统表(1)
+-- 包含31张表：维度表(3) + 汇总表(5) + 聚合表(5) + 推荐与功能表(11) + 挖掘表(3) + 预测表(3) + 系统表(1)
 -- 用于Spark数据导出
 -- =============================================
 
@@ -264,7 +264,7 @@ CREATE TABLE `operation_dashboard` (
 
 
 -- =============================================
--- 第四部分：推荐与功能表（9张）
+-- 第四部分：推荐与功能表（11张）
 -- 从推荐算法和ADS层导出
 -- =============================================
 
@@ -382,7 +382,32 @@ CREATE TABLE `collection_utilization_analysis` (
   KEY `idx_reader_ratio` (`reader_per_book_ratio`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='馆藏利用分析表（按位置/主题维度，包含周转率、需求分级、读者比等指标）';
 
--- 20. 时间分布表（图书管理员）
+-- 20. 出版社分析表（高级管理员）
+DROP TABLE IF EXISTS `publisher_analysis`;
+CREATE TABLE `publisher_analysis` (
+  `publisher` VARCHAR(255) NOT NULL COMMENT '出版社名称',
+  `book_count` BIGINT(20) DEFAULT NULL COMMENT '图书数量',
+  `total_lend_count` BIGINT(20) DEFAULT NULL COMMENT '总借阅次数',
+  `total_user_count` BIGINT(20) DEFAULT NULL COMMENT '总借阅用户数',
+  `avg_lend_count` DOUBLE DEFAULT NULL COMMENT '平均借阅次数',
+  `rank_no` INT(11) DEFAULT NULL COMMENT '排名',
+  PRIMARY KEY (`publisher`(191)),
+  KEY `idx_rank` (`rank_no`),
+  KEY `idx_total_lend` (`total_lend_count`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='出版社分析表（高级管理员，TOP50）';
+
+-- 21. 出版年份分析表（高级管理员）
+DROP TABLE IF EXISTS `publish_year_analysis`;
+CREATE TABLE `publish_year_analysis` (
+  `pub_year` INT(11) NOT NULL COMMENT '出版年份',
+  `book_count` BIGINT(20) DEFAULT NULL COMMENT '图书数量',
+  `total_lend_count` BIGINT(20) DEFAULT NULL COMMENT '总借阅次数',
+  `avg_lend_count` DOUBLE DEFAULT NULL COMMENT '平均借阅次数',
+  PRIMARY KEY (`pub_year`),
+  KEY `idx_total_lend` (`total_lend_count`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='出版年份分析表（高级管理员）';
+
+-- 22. 时间分布表（图书管理员）
 DROP TABLE IF EXISTS `time_distribution`;
 CREATE TABLE `time_distribution` (
   `time_type` VARCHAR(20) NOT NULL COMMENT '时间类型',
@@ -395,7 +420,7 @@ CREATE TABLE `time_distribution` (
   KEY `idx_borrow_count` (`borrow_count`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='时间分布分析表';
 
--- 21. 用户排名表（普通用户）
+-- 23. 用户排名表（普通用户）
 DROP TABLE IF EXISTS `user_ranking`;
 CREATE TABLE `user_ranking` (
   `userid` VARCHAR(64) NOT NULL COMMENT '用户ID',
@@ -416,7 +441,7 @@ CREATE TABLE `user_ranking` (
   KEY `idx_occupation_rank` (`occupation_rank`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户排名表';
 
--- 22. 图书推荐基础表（普通用户）
+-- 24. 图书推荐基础表（普通用户）
 DROP TABLE IF EXISTS `book_recommend_base`;
 CREATE TABLE `book_recommend_base` (
   `recommend_type` VARCHAR(50) NOT NULL COMMENT '推荐类型',
@@ -438,7 +463,7 @@ CREATE TABLE `book_recommend_base` (
 -- 关联规则分析 + 用户聚类分群
 -- =============================================
 
--- 23. 图书关联规则表（FPGrowth算法）
+-- 25. 图书关联规则表（FPGrowth算法）
 DROP TABLE IF EXISTS `book_association_rules`;
 CREATE TABLE `book_association_rules` (
   `antecedent_books` VARCHAR(500) NOT NULL COMMENT '前项图书ID（逗号分隔）',
@@ -458,7 +483,7 @@ CREATE TABLE `book_association_rules` (
   KEY `idx_association_type` (`association_type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='图书关联规则表（FPGrowth算法挖掘结果）';
 
--- 24. 用户聚类表（K-means算法）
+-- 26. 用户聚类表（K-means算法）
 DROP TABLE IF EXISTS `user_clusters`;
 CREATE TABLE `user_clusters` (
   `userid` VARCHAR(64) NOT NULL COMMENT '用户ID',
@@ -480,7 +505,7 @@ CREATE TABLE `user_clusters` (
   KEY `idx_borrow_count` (`borrow_count`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户聚类分群表（K-means算法结果）';
 
--- 25. 聚类统计摘要表
+-- 27. 聚类统计摘要表
 DROP TABLE IF EXISTS `cluster_summary`;
 CREATE TABLE `cluster_summary` (
   `cluster` INT(11) NOT NULL COMMENT '聚类编号',
@@ -501,7 +526,7 @@ CREATE TABLE `cluster_summary` (
 -- 机器学习预测
 -- =============================================
 
--- 26. 用户逾期风险预测表
+-- 28. 用户逾期风险预测表
 DROP TABLE IF EXISTS `overdue_risk_prediction`;
 CREATE TABLE `overdue_risk_prediction` (
   `userid` VARCHAR(64) NOT NULL COMMENT '用户ID',
@@ -519,7 +544,7 @@ CREATE TABLE `overdue_risk_prediction` (
   KEY `idx_overdue_probability` (`overdue_probability`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户逾期风险预测表';
 
--- 27. 借阅趋势预测表
+-- 29. 借阅趋势预测表
 DROP TABLE IF EXISTS `lend_trend_prediction`;
 CREATE TABLE `lend_trend_prediction` (
   `lend_month` VARCHAR(10) NOT NULL COMMENT '月份（yyyy-MM）',
@@ -537,7 +562,7 @@ CREATE TABLE `lend_trend_prediction` (
   KEY `idx_year_month` (`year`, `month`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='借阅趋势预测表';
 
--- 28. 图书热度预测表
+-- 30. 图书热度预测表
 DROP TABLE IF EXISTS `book_heat_prediction`;
 CREATE TABLE `book_heat_prediction` (
   `book_id` VARCHAR(64) NOT NULL COMMENT '图书ID',
@@ -582,37 +607,41 @@ CREATE TABLE `book_heat_prediction` (
 12. lend_trend - 借阅趋势
 13. operation_dashboard - 运营看板
 
-推荐与功能表（9张）- 从推荐算法和ADS层导出：
+推荐与功能表（11张）- 从推荐算法和ADS层导出：
 14. book_recommendations - 个性化推荐（协同过滤）
 15. recommendation_stats - 推荐效果统计表（推荐系统监控）
 16. user_profile - 用户画像分析（高级管理员）
 17. major_reading_profile - 专业阅读特征（高级管理员）
 18. overdue_analysis - 逾期分析（图书管理员）
 19. collection_utilization_analysis - 馆藏利用分析（高级管理员）
-20. time_distribution - 时间分布分析（图书管理员）
-21. user_ranking - 用户排名（普通用户）
-22. book_recommend_base - 图书推荐基础表（普通用户）
+20. publisher_analysis - 出版社分析（高级管理员）
+21. publish_year_analysis - 出版年份分析（高级管理员）
+22. time_distribution - 时间分布分析（图书管理员）
+23. user_ranking - 用户排名（普通用户）
+24. book_recommend_base - 图书推荐基础表（普通用户）
 
 高级数据挖掘表（3张）- 机器学习算法：
-23. book_association_rules - 图书关联规则（FPGrowth算法）
-24. user_clusters - 用户聚类分群（K-means算法）
-25. cluster_summary - 聚类统计摘要
+25. book_association_rules - 图书关联规则（FPGrowth算法）
+26. user_clusters - 用户聚类分群（K-means算法）
+27. cluster_summary - 聚类统计摘要
 
 预测分析表（3张）- 机器学习预测：
-26. overdue_risk_prediction - 用户逾期风险预测
-27. lend_trend_prediction - 借阅趋势预测
-28. book_heat_prediction - 图书热度预测
+28. overdue_risk_prediction - 用户逾期风险预测
+29. lend_trend_prediction - 借阅趋势预测
+30. book_heat_prediction - 图书热度预测
 
 系统用户表（1张）：
-29. sys_user - 系统用户表
+31. sys_user - 系统用户表
 
-总计：29张表
+总计：31张表
 
 角色功能对应：
 【高级管理员】- 战略决策层
   - user_profile（用户画像）
   - major_reading_profile（专业特征）
   - collection_utilization_analysis（馆藏利用分析）
+  - publisher_analysis（出版社分析）
+  - publish_year_analysis（出版年份分析）
   - operation_dashboard（运营看板）
   - book_association_rules（图书关联规则 - FPGrowth算法）
   - user_clusters + cluster_summary（用户聚类分群 - K-means算法）
@@ -637,7 +666,7 @@ CREATE TABLE `book_heat_prediction` (
 -- 存储管理员账号
 -- =============================================
 
--- 29. 系统用户表
+-- 31. 系统用户表
 DROP TABLE IF EXISTS `sys_user`;
 CREATE TABLE `sys_user` (
   `id` BIGINT(20) NOT NULL AUTO_INCREMENT COMMENT '主键ID',

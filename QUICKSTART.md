@@ -81,7 +81,7 @@ spring:
 # 创建数据库和表结构
 mysql -uroot -p < bigdata/mysql/init_mysql.sql
 
-# 验证表创建成功（应显示29张表）
+# 验证表创建成功（应显示31张表）
 mysql -uroot -p library_analysis -e "SHOW TABLES;" | wc -l
 ```
 
@@ -293,7 +293,7 @@ kill -9 <PID>
 
 ## 📊 启动后验证清单
 
-- [ ] MySQL数据库已创建，包含29张表
+- [ ] MySQL数据库已创建，包含31张表
 - [ ] Hive表结构已创建（ODS/DWD/DWS/ADS层）
 - [ ] HDFS中有原始数据文件
 - [ ] MySQL中有业务数据（至少部分表有数据）

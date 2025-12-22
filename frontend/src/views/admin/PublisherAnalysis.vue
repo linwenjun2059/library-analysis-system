@@ -55,11 +55,11 @@
               <template #label>
                 <span><el-icon><List /></el-icon> 表格视图</span>
               </template>
-              <el-table :data="publisherList" v-loading="loading" stripe style="width: 100%">
+              <el-table :data="publisherPageData" v-loading="loading" stripe style="width: 100%">
                 <el-table-column type="index" label="排名" width="80" align="center">
-                  <template #default="{ $index }">
-                    <el-tag :type="$index < 3 ? 'danger' : $index < 10 ? 'warning' : 'info'" effect="dark">
-                      {{ $index + 1 }}
+                  <template #default="{ row }">
+                    <el-tag :type="row.rankNo <= 3 ? 'danger' : row.rankNo <= 10 ? 'warning' : 'info'" effect="dark">
+                      {{ row.rankNo }}
                     </el-tag>
                   </template>
                 </el-table-column>
@@ -69,6 +69,14 @@
                 <el-table-column prop="totalUserCount" label="总借阅用户数" min-width="140" align="center" sortable />
                 <el-table-column prop="avgLendCount" label="平均借阅次数" min-width="140" align="center" :formatter="formatNumber" sortable />
               </el-table>
+              <el-pagination
+                v-model:current-page="publisherPage"
+                v-model:page-size="publisherPageSize"
+                :page-sizes="[10, 20, 50]"
+                :total="publisherList.length"
+                layout="total, sizes, prev, pager, next, jumper"
+                style="margin-top: 16px; justify-content: flex-end;"
+              />
             </el-tab-pane>
           </el-tabs>
         </el-tab-pane>
@@ -117,16 +125,20 @@
               <template #label>
                 <span><el-icon><List /></el-icon> 表格视图</span>
               </template>
-              <el-table :data="yearList" v-loading="loading" stripe style="width: 100%">
-                <el-table-column prop="year" label="出版年份" min-width="120" align="center" sortable />
+              <el-table :data="yearPageData" v-loading="loading" stripe style="width: 100%">
+                <el-table-column prop="pubYear" label="出版年份" min-width="120" align="center" sortable />
                 <el-table-column prop="bookCount" label="图书数量" min-width="120" align="center" sortable />
                 <el-table-column prop="totalLendCount" label="总借阅次数" min-width="140" align="center" sortable />
-                <el-table-column label="平均借阅次数" min-width="140" align="center" sortable>
-                  <template #default="{ row }">
-                    {{ row.bookCount > 0 ? (row.totalLendCount / row.bookCount).toFixed(2) : '0.00' }}
-                  </template>
-                </el-table-column>
+                <el-table-column prop="avgLendCount" label="平均借阅次数" min-width="140" align="center" :formatter="formatNumber" sortable />
               </el-table>
+              <el-pagination
+                v-model:current-page="yearPage"
+                v-model:page-size="yearPageSize"
+                :page-sizes="[10, 20, 50]"
+                :total="yearList.length"
+                layout="total, sizes, prev, pager, next, jumper"
+                style="margin-top: 16px; justify-content: flex-end;"
+              />
             </el-tab-pane>
           </el-tabs>
         </el-tab-pane>
@@ -136,7 +148,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { getPublisherAnalysis, getPublishYearAnalysis } from '@/api/statistics'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
@@ -148,6 +160,29 @@ const publisherViewMode = ref('chart')
 const yearViewMode = ref('chart')
 const publisherList = ref([])
 const yearList = ref([])
+
+// 分页参数
+const publisherPage = ref(1)
+const publisherPageSize = ref(10)
+const yearPage = ref(1)
+const yearPageSize = ref(10)
+
+// 分页数据计算
+const publisherPageData = computed(() => {
+  const start = (publisherPage.value - 1) * publisherPageSize.value
+  const end = start + publisherPageSize.value
+  return publisherList.value.slice(start, end)
+})
+
+const yearPageData = computed(() => {
+  const start = (yearPage.value - 1) * yearPageSize.value
+  const end = start + yearPageSize.value
+  return yearList.value.slice(start, end)
+})
+
+// 懒加载状态：记录每个 Tab 是否已加载数据
+const publisherLoaded = ref(false)
+const yearLoaded = ref(false)
 
 // 出版社图表refs
 const publisherRankingChartRef = ref(null)
@@ -169,19 +204,31 @@ const formatNumber = (row, column, cellValue) => {
   return cellValue ? cellValue.toFixed(2) : '0.00'
 }
 
+// 刷新当前 Tab 数据
 const loadAllData = async () => {
-  await Promise.all([loadPublisherData(), loadYearData()])
+  if (mainTab.value === 'publisher') {
+    publisherLoaded.value = false
+    await loadPublisherData()
+  } else {
+    yearLoaded.value = false
+    await loadYearData()
+  }
 }
 
 const loadPublisherData = async () => {
+  if (publisherLoaded.value && publisherList.value.length > 0) {
+    // 已加载过，直接渲染图表
+    nextTick(() => initPublisherCharts())
+    return
+  }
+  
   loading.value = true
   try {
     const result = await getPublisherAnalysis()
     publisherList.value = result.data || []
+    publisherLoaded.value = true
     
-    if (mainTab.value === 'publisher') {
-      nextTick(() => initPublisherCharts())
-    }
+    nextTick(() => initPublisherCharts())
   } catch (error) {
     ElMessage.error('加载出版社数据失败：' + (error.message || '未知错误'))
   } finally {
@@ -190,25 +237,35 @@ const loadPublisherData = async () => {
 }
 
 const loadYearData = async () => {
+  if (yearLoaded.value && yearList.value.length > 0) {
+    // 已加载过，直接渲染图表
+    nextTick(() => initYearCharts())
+    return
+  }
+  
+  loading.value = true
   try {
     const result = await getPublishYearAnalysis()
-    yearList.value = (result.data || []).sort((a, b) => b.year - a.year)
+    yearList.value = result.data || []
+    yearLoaded.value = true
     
-    if (mainTab.value === 'year') {
-      nextTick(() => initYearCharts())
-    }
+    nextTick(() => initYearCharts())
   } catch (error) {
-    console.error('加载出版年份数据失败：', error)
+    ElMessage.error('加载出版年份数据失败：' + (error.message || '未知错误'))
+  } finally {
+    loading.value = false
   }
 }
 
 const handleTabChange = (tab) => {
   nextTick(() => {
     setTimeout(() => {
-      if (tab === 'publisher' && publisherList.value.length > 0) {
-        initPublisherCharts()
-      } else if (tab === 'year' && yearList.value.length > 0) {
-        initYearCharts()
+      if (tab === 'publisher') {
+        // 懒加载：切换到出版社 Tab 时才加载数据
+        loadPublisherData()
+      } else if (tab === 'year') {
+        // 懒加载：切换到出版年份 Tab 时才加载数据
+        loadYearData()
       }
     }, 100)
   })
@@ -277,8 +334,8 @@ const initPublisherCharts = () => {
 const initYearCharts = () => {
   if (yearList.value.length === 0) return
   
-  const sortedYears = [...yearList.value].sort((a, b) => a.year - b.year)
-  const years = sortedYears.map(item => item.year.toString())
+  const sortedYears = [...yearList.value].sort((a, b) => a.pubYear - b.pubYear)
+  const years = sortedYears.map(item => item.pubYear.toString())
   
   // 趋势图
   if (yearTrendChartRef.value) {
@@ -337,7 +394,8 @@ const handleResize = () => {
 }
 
 onMounted(() => {
-  loadAllData()
+  // 懒加载：只加载当前 Tab 的数据（默认是出版社分析）
+  loadPublisherData()
   window.addEventListener('resize', handleResize)
 })
 

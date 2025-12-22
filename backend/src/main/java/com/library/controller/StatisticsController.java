@@ -236,9 +236,9 @@ public class StatisticsController {
      */
     @ApiOperation("获取出版社分析")
     @GetMapping("/publisher-analysis")
-    public Result<List<Map<String, Object>>> getPublisherAnalysis() {
+    public Result<List<PublisherAnalysis>> getPublisherAnalysis() {
         log.info("获取出版社分析");
-        List<Map<String, Object>> list = statisticsService.getPublisherAnalysis();
+        List<PublisherAnalysis> list = statisticsService.getPublisherAnalysis();
         return Result.success(list);
     }
 
@@ -247,9 +247,9 @@ public class StatisticsController {
      */
     @ApiOperation("获取出版年份分析")
     @GetMapping("/publish-year-analysis")
-    public Result<List<Map<String, Object>>> getPublishYearAnalysis() {
+    public Result<List<PublishYearAnalysis>> getPublishYearAnalysis() {
         log.info("获取出版年份分析");
-        List<Map<String, Object>> list = statisticsService.getPublishYearAnalysis();
+        List<PublishYearAnalysis> list = statisticsService.getPublishYearAnalysis();
         return Result.success(list);
     }
 

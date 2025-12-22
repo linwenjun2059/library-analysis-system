@@ -180,6 +180,38 @@ TBLPROPERTIES (
     'parquet.compression'='SNAPPY'
 );
 
+-- 出版社分析表（高级管理员）
+DROP TABLE IF EXISTS ads_publisher_analysis;
+
+CREATE TABLE IF NOT EXISTS ads_publisher_analysis(
+    publisher STRING COMMENT '出版社名称',
+    book_count BIGINT COMMENT '图书数量',
+    total_lend_count BIGINT COMMENT '总借阅次数',
+    total_user_count BIGINT COMMENT '总借阅用户数',
+    avg_lend_count DOUBLE COMMENT '平均借阅次数',
+    rank_no INT COMMENT '排名'
+)
+COMMENT '出版社分析表（高级管理员，TOP50）'
+STORED AS PARQUET
+TBLPROPERTIES (
+    'parquet.compression'='SNAPPY'
+);
+
+-- 出版年份分析表（高级管理员）
+DROP TABLE IF EXISTS ads_publish_year_analysis;
+
+CREATE TABLE IF NOT EXISTS ads_publish_year_analysis(
+    pub_year INT COMMENT '出版年份',
+    book_count BIGINT COMMENT '图书数量',
+    total_lend_count BIGINT COMMENT '总借阅次数',
+    avg_lend_count DOUBLE COMMENT '平均借阅次数'
+)
+COMMENT '出版年份分析表（高级管理员）'
+STORED AS PARQUET
+TBLPROPERTIES (
+    'parquet.compression'='SNAPPY'
+);
+
 -- 时间分布分析（图书管理员）
 DROP TABLE IF EXISTS ads_time_distribution;
 

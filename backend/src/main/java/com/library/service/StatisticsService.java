@@ -103,12 +103,12 @@ public interface StatisticsService {
     /**
      * 获取出版社分析数据
      */
-    List<Map<String, Object>> getPublisherAnalysis();
+    List<PublisherAnalysis> getPublisherAnalysis();
 
     /**
      * 获取出版年份分析数据
      */
-    List<Map<String, Object>> getPublishYearAnalysis();
+    List<PublishYearAnalysis> getPublishYearAnalysis();
 
     /**
      * 获取借阅时间分布(按小时)

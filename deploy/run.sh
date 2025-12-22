@@ -178,7 +178,7 @@ step5_spark_analyze() {
       ${PYTHON_SCRIPT_DIR}/03_data_analyze.py
     
     if [ $? -eq 0 ]; then
-        print_success "数据分析完成（ADS层 - 12张表）"
+        print_success "数据分析完成（ADS层 - 14张表）"
         return 0
     else
         print_error "数据分析失败"
@@ -187,10 +187,10 @@ step5_spark_analyze() {
 }
 
 # =============================================
-# 步骤6: 导出数据到MySQL（20张表）
+# 步骤6: 导出数据到MySQL（22张表）
 # =============================================
 step6_export_mysql() {
-    print_header "步骤6: 导出数据到MySQL（20张表）"
+    print_header "步骤6: 导出数据到MySQL（22张表）"
     
     # 检查MySQL JDBC驱动
     if [ ! -f "${MYSQL_JDBC_JAR}" ]; then
@@ -219,7 +219,7 @@ step6_export_mysql() {
       ${PYTHON_SCRIPT_DIR}/04_data_export.py
     
     if [ $? -eq 0 ]; then
-        print_success "数据导出完成（20张表）"
+        print_success "数据导出完成（22张表）"
         return 0
     else
         print_error "数据导出失败"
@@ -409,10 +409,10 @@ show_usage() {
        输出：5张汇总表
   5 - 数据分析 (DWS → ADS)
        脚本：03_data_analyze.py
-       输出：12张分析表
+       输出：14张分析表
   6 - 导出MySQL (Hive → MySQL)
        脚本：04_data_export.py
-       输出：20张表（维度3 + 汇总5 + 聚合5 + 功能7）
+       输出：22张表（维度3 + 汇总5 + 聚合5 + 功能9）
   7 - 推荐算法（可选）
        脚本：05_book_recommend.py
        输出：推荐表（ALS协同过滤+内容推荐+热门推荐）

@@ -76,6 +76,12 @@ public class StatisticsServiceImpl implements StatisticsService {
     @Resource
     private BookLendSummaryMapper bookLendSummaryMapper;
 
+    @Resource
+    private PublisherAnalysisMapper publisherAnalysisMapper;
+
+    @Resource
+    private PublishYearAnalysisMapper publishYearAnalysisMapper;
+
     @Override
     public UserRanking getUserRanking(String userid) {
         return userRankingMapper.selectById(userid);
@@ -233,98 +239,19 @@ public class StatisticsServiceImpl implements StatisticsService {
     }
 
     @Override
-    public List<Map<String, Object>> getPublisherAnalysis() {
-        List<BookDimension> books = bookDimensionMapper.selectList(null);
-        List<BookLendSummary> summaries = bookLendSummaryMapper.selectList(null);
-        
-        // 创建图书ID到借阅汇总的映射
-        Map<String, BookLendSummary> summaryMap = summaries.stream()
-                .collect(Collectors.toMap(BookLendSummary::getBookId, s -> s));
-        
-        // 按出版社分组统计
-        Map<String, Map<String, Object>> publisherMap = new HashMap<>();
-        
-        for (BookDimension book : books) {
-            if (book.getPublisher() == null || book.getPublisher().isEmpty()) {
-                continue;
-            }
-            
-            String publisher = book.getPublisher();
-            BookLendSummary summary = summaryMap.get(book.getBookId());
-            
-            publisherMap.computeIfAbsent(publisher, k -> {
-                Map<String, Object> stats = new HashMap<>();
-                stats.put("publisher", publisher);
-                stats.put("bookCount", 0L);
-                stats.put("totalLendCount", 0L);
-                stats.put("totalUserCount", 0L);
-                return stats;
-            });
-            
-            Map<String, Object> stats = publisherMap.get(publisher);
-            stats.put("bookCount", ((Long) stats.get("bookCount")) + 1);
-            
-            if (summary != null) {
-                stats.put("totalLendCount", ((Long) stats.get("totalLendCount")) + 
-                        (summary.getTotalLendCount() != null ? summary.getTotalLendCount() : 0));
-                stats.put("totalUserCount", ((Long) stats.get("totalUserCount")) + 
-                        (summary.getUniqueUserCount() != null ? summary.getUniqueUserCount() : 0));
-            }
-        }
-        
-        // 计算平均借阅次数并排序
-        return publisherMap.values().stream()
-                .peek(stats -> {
-                    Long bookCount = (Long) stats.get("bookCount");
-                    if (bookCount > 0) {
-                        Long totalLend = (Long) stats.get("totalLendCount");
-                        stats.put("avgLendCount", totalLend.doubleValue() / bookCount);
-                    } else {
-                        stats.put("avgLendCount", 0.0);
-                    }
-                })
-                .sorted((a, b) -> Long.compare((Long) b.get("totalLendCount"), (Long) a.get("totalLendCount")))
-                .limit(20)
-                .collect(Collectors.toList());
+    public List<PublisherAnalysis> getPublisherAnalysis() {
+        // 直接查询出版社分析表，按排名排序
+        LambdaQueryWrapper<PublisherAnalysis> wrapper = new LambdaQueryWrapper<>();
+        wrapper.orderByAsc(PublisherAnalysis::getRankNo);
+        return publisherAnalysisMapper.selectList(wrapper);
     }
 
     @Override
-    public List<Map<String, Object>> getPublishYearAnalysis() {
-        List<BookDimension> books = bookDimensionMapper.selectList(null);
-        List<BookLendSummary> summaries = bookLendSummaryMapper.selectList(null);
-        
-        Map<String, BookLendSummary> summaryMap = summaries.stream()
-                .collect(Collectors.toMap(BookLendSummary::getBookId, s -> s));
-        
-        Map<Integer, Map<String, Object>> yearMap = new HashMap<>();
-        
-        for (BookDimension book : books) {
-            if (book.getPubYear() == null) {
-                continue;
-            }
-            
-            Integer year = book.getPubYear();
-            BookLendSummary summary = summaryMap.get(book.getBookId());
-            
-            yearMap.computeIfAbsent(year, k -> {
-                Map<String, Object> stats = new HashMap<>();
-                stats.put("year", year);
-                stats.put("bookCount", 0L);
-                stats.put("totalLendCount", 0L);
-                return stats;
-            });
-            
-            Map<String, Object> stats = yearMap.get(year);
-            stats.put("bookCount", ((Long) stats.get("bookCount")) + 1);
-            
-            if (summary != null && summary.getTotalLendCount() != null) {
-                stats.put("totalLendCount", ((Long) stats.get("totalLendCount")) + summary.getTotalLendCount());
-            }
-        }
-        
-        return yearMap.values().stream()
-                .sorted((a, b) -> Integer.compare((Integer) b.get("year"), (Integer) a.get("year")))
-                .collect(Collectors.toList());
+    public List<PublishYearAnalysis> getPublishYearAnalysis() {
+        // 直接查询出版年份分析表，按年份降序排序
+        LambdaQueryWrapper<PublishYearAnalysis> wrapper = new LambdaQueryWrapper<>();
+        wrapper.orderByDesc(PublishYearAnalysis::getPubYear);
+        return publishYearAnalysisMapper.selectList(wrapper);
     }
 
     @Override

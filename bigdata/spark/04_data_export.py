@@ -3,13 +3,13 @@
 
 """
 步骤4：数据导出（Hive → MySQL）
-统一导出20张表到MySQL供业务系统使用
+统一导出22张表到MySQL供业务系统使用
 
 表分类：
 - 维度表（3张）：用户维度、图书维度、近期借阅记录
 - 汇总表（5张）：用户汇总、图书汇总、院系汇总、主题汇总、每日统计
 - 聚合表（5张）：热门图书、活跃用户、院系偏好、借阅趋势、运营看板
-- 功能表（7张）：用户画像、专业阅读、逾期分析、馆藏利用、时间分布、用户排名、推荐基础表
+- 功能表（9张）：用户画像、专业阅读、馆藏利用、出版社分析、出版年份分析、逾期分析、时间分布、用户排名、推荐基础表
 
 注：推荐结果表（2张MySQL + 1张Hive）由05_book_recommend.py单独导出
 """
@@ -20,7 +20,7 @@ from pyspark.sql.window import Window
 import sys
 
 class DataExporter:
-    """数据导出：Hive → MySQL（20张表）"""
+    """数据导出：Hive → MySQL（22张表）"""
     
     def __init__(self):
         self.spark = SparkSession.builder \
@@ -64,7 +64,7 @@ class DataExporter:
     def _export_user_dimension(self):
         """导出用户维度表"""
         print("\n" + "=" * 60)
-        print(f"[{self.exported_count + 1}/20] 导出用户维度表...")
+        print(f"[{self.exported_count + 1}/22] 导出用户维度表...")
         
         user_df = self.spark.sql("""
             SELECT 
@@ -90,7 +90,7 @@ class DataExporter:
     def _export_book_dimension(self):
         """导出图书维度表"""
         print("\n" + "=" * 60)
-        print(f"[{self.exported_count + 1}/20] 导出图书维度表...")
+        print(f"[{self.exported_count + 1}/22] 导出图书维度表...")
         
         book_df = self.spark.sql("""
             SELECT book_id, title, author, publisher, isbn, pub_year, subject, 
@@ -117,7 +117,7 @@ class DataExporter:
     def _export_recent_lend_records(self):
         """导出近期借阅记录（数据中最近6个月）"""
         print("\n" + "=" * 60)
-        print(f"[{self.exported_count + 1}/20] 导出近期借阅记录（数据中最近6个月）...")
+        print(f"[{self.exported_count + 1}/22] 导出近期借阅记录（数据中最近6个月）...")
         
         # 动态相对时间：基于数据中的最新日期往前推180天
         recent_df = self.spark.sql("""
@@ -155,7 +155,7 @@ class DataExporter:
         
         # 每日统计（数据中最近1年）
         print("\n" + "=" * 60)
-        print(f"[{self.exported_count + 1}/20] 导出每日统计（数据中最近1年）...")
+        print(f"[{self.exported_count + 1}/22] 导出每日统计（数据中最近1年）...")
         
         # 动态相对时间：基于数据中的最新日期往前推365天
         daily_df = self.spark.sql("""
@@ -193,27 +193,34 @@ class DataExporter:
         self._export_table("operation_dashboard", "library_ads.ads_operation_dashboard", "运营看板")
     
     # =============================================
-    # 第四部分：功能表（7张）
+    # 第四部分：功能表（9张）
     # =============================================
     
     def export_feature_tables(self):
-        """导出功能表（7张）- 支持高级管理员、图书管理员、普通用户功能"""
+        """导出功能表（9张）- 支持高级管理员、图书管理员、普通用户功能"""
         print("\n" + "█" * 60)
-        print("第四部分：导出功能表（7张）")
+        print("第四部分：导出功能表（9张）")
         print("█" * 60)
         
+        # 高级管理员功能表（5张）
         self._export_user_profile()
         self._export_major_reading_profile()
-        self._export_table("overdue_analysis", "library_ads.ads_overdue_analysis", "逾期分析")
         self._export_table("collection_utilization_analysis", "library_ads.ads_collection_utilization", "馆藏利用分析")
+        self._export_table("publisher_analysis", "library_ads.ads_publisher_analysis", "出版社分析")
+        self._export_table("publish_year_analysis", "library_ads.ads_publish_year_analysis", "出版年份分析")
+        
+        # 图书管理员功能表（2张）
+        self._export_table("overdue_analysis", "library_ads.ads_overdue_analysis", "逾期分析")
         self._export_table("time_distribution", "library_ads.ads_time_distribution", "时间分布")
+        
+        # 普通用户功能表（2张）
         self._export_table("user_ranking", "library_ads.ads_user_ranking", "用户排名")
         self._export_table("book_recommend_base", "library_ads.ads_book_recommend_base", "图书推荐基础表")
     
     def _export_user_profile(self):
         """导出用户画像表（需要处理ARRAY类型转JSON）"""
         print("\n" + "=" * 60)
-        print(f"[{self.exported_count + 1}/20] 导出用户画像分析...")
+        print(f"[{self.exported_count + 1}/22] 导出用户画像分析...")
         
         # 读取Hive表，将ARRAY转为JSON字符串
         df = self.spark.sql("""
@@ -246,7 +253,7 @@ class DataExporter:
     def _export_major_reading_profile(self):
         """导出专业阅读特征表（需要处理ARRAY类型转JSON）"""
         print("\n" + "=" * 60)
-        print(f"[{self.exported_count + 1}/20] 导出专业阅读特征...")
+        print(f"[{self.exported_count + 1}/22] 导出专业阅读特征...")
         
         # 读取Hive表，将ARRAY转为JSON字符串
         df = self.spark.sql("""
@@ -273,7 +280,7 @@ class DataExporter:
     def _export_table(self, mysql_table, hive_table, desc):
         """通用导出方法"""
         print("\n" + "=" * 60)
-        print(f"[{self.exported_count + 1}/20] 导出{desc}...")
+        print(f"[{self.exported_count + 1}/22] 导出{desc}...")
         
         df = self.spark.sql(f"SELECT * FROM {hive_table}")
         count = df.count()
@@ -292,11 +299,11 @@ class DataExporter:
         print("\n" + "█" * 60)
         print("🚀 开始导出数据到MySQL")
         print("█" * 60)
-        print("📋 总计：20张表")
+        print("📋 总计：22张表")
         print("   - 维度表：3张（用户/图书/近期借阅）")
         print("   - 汇总表：5张（用户/图书/院系/主题/每日统计）")
         print("   - 聚合表：5张（热门图书/活跃用户/院系偏好/借阅趋势/运营看板）")
-        print("   - 功能表：7张（用户画像/专业阅读/逾期分析/馆藏利用/时间分布/用户排名/推荐基础）")
+        print("   - 功能表：9张（用户画像/专业阅读/逾期分析/馆藏利用/时间分布/用户排名/出版社分析/出版年份分析/推荐基础）")
         print("💡 推荐结果表：2张MySQL + 1张Hive由05_book_recommend.py单独导出")
         print("█" * 60)
         
@@ -328,6 +335,7 @@ class DataExporter:
             print("   - 汇总表：用于快速统计查询和数据分析")
             print("   - 聚合表：用于Dashboard可视化展示")
             print("   - 功能表：支持三大角色功能（高级管理员/图书管理员/普通用户）")
+            print("   - 出版分析表：优化页面加载速度")
             print("   - 推荐表：由05_book_recommend.py生成（2张：推荐主表+统计表）")
             print("   - 历史借阅明细保留在Hive，按需查询")
             print("█" * 60)
