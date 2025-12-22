@@ -434,7 +434,7 @@ onMounted(async () => {
 
 <style scoped>
 .user-clustering-container {
-  padding: 0px;
+  padding: 0;
 }
 
 .stats-row {
@@ -443,6 +443,7 @@ onMounted(async () => {
 
 .stat-card {
   text-align: center;
+  margin-bottom: 20px;
 }
 
 .chart-row {

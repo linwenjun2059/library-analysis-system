@@ -299,7 +299,7 @@ onMounted(async () => {
 
 <style scoped>
 .book-association-container {
-  padding: 0px;
+  padding: 0;
 }
 
 .stats-row {
@@ -308,6 +308,7 @@ onMounted(async () => {
 
 .stat-card {
   text-align: center;
+  margin-bottom: 20px;
 }
 
 .chart-row {

@@ -12,7 +12,10 @@
       
       <el-tabs v-model="activeTab" @tab-change="handleTabChange">
         <!-- Tab 1: 小时分布 -->
-        <el-tab-pane label="⏰ 小时分布" name="hour">
+        <el-tab-pane name="hour">
+          <template #label>
+            <span><el-icon><Clock /></el-icon> 小时分布</span>
+          </template>
           <el-empty v-if="hourData.length === 0" description="暂无小时分布数据" />
           <template v-else>
             <el-row :gutter="20">
@@ -49,7 +52,10 @@
         </el-tab-pane>
         
         <!-- Tab 2: 星期分布 -->
-        <el-tab-pane label="📅 星期分布" name="weekday">
+        <el-tab-pane name="weekday">
+          <template #label>
+            <span><el-icon><Calendar /></el-icon> 星期分布</span>
+          </template>
           <el-empty v-if="weekdayData.length === 0" description="暂无星期分布数据" />
           <template v-else>
             <el-card shadow="hover" style="margin-bottom: 20px;">
@@ -94,7 +100,10 @@
         </el-tab-pane>
         
         <!-- Tab 3: 月份分布 -->
-        <el-tab-pane label="📆 月份分布" name="month">
+        <el-tab-pane name="month">
+          <template #label>
+            <span><el-icon><Calendar /></el-icon> 月份分布</span>
+          </template>
           <el-empty v-if="monthData.length === 0" description="暂无月份分布数据" />
           <template v-else>
             <el-card shadow="hover" style="margin-bottom: 20px;">
@@ -128,7 +137,10 @@
         </el-tab-pane>
         
         <!-- Tab 4: 续借分析 -->
-        <el-tab-pane label="🔄 续借分析" name="renew">
+        <el-tab-pane name="renew">
+          <template #label>
+            <span><el-icon><Refresh /></el-icon> 续借分析</span>
+          </template>
           <el-card shadow="hover" style="margin-bottom: 20px;">
             <template #header>
               <span>续借行为统计</span>
@@ -177,7 +189,10 @@
         </el-tab-pane>
         
         <!-- Tab 5: 时间热力图 -->
-        <el-tab-pane label="🔥 时间热力图" name="heatmap">
+        <el-tab-pane name="heatmap">
+          <template #label>
+            <span><el-icon><DataAnalysis /></el-icon> 时间热力图</span>
+          </template>
           <el-alert 
             title="💡 时间热力图可精准定位高峰时段，帮助科学安排值班人员和资源调度" 
             type="success" 
@@ -188,7 +203,7 @@
           <!-- 星期×小时热力图 -->
           <el-card shadow="hover" style="margin-bottom: 20px;">
             <template #header>
-              <span>📊 星期×小时借阅热力图</span>
+              <span><el-icon><DataAnalysis /></el-icon> 星期×小时借阅热力图</span>
             </template>
             <el-empty v-if="hourData.length === 0 || weekdayData.length === 0" description="暂无数据" />
             <template v-else>
@@ -213,7 +228,7 @@
           <!-- 月份×星期热力图 -->
           <el-card shadow="hover">
             <template #header>
-              <span>📅 月份×星期借阅热力图</span>
+              <span><el-icon><Calendar /></el-icon> 月份×星期借阅热力图</span>
             </template>
             <el-empty v-if="monthData.length === 0 || weekdayData.length === 0" description="暂无数据" />
             <template v-else>
@@ -237,7 +252,7 @@ import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { getTimeDistribution, getRenewAnalysis } from '@/api/statistics'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
-import { Clock, Refresh, Document, TrendCharts, DataAnalysis, Sunny } from '@element-plus/icons-vue'
+import { Clock, Refresh, Document, TrendCharts, DataAnalysis, Sunny, Calendar } from '@element-plus/icons-vue'
 
 const loading = ref(false)
 const activeTab = ref('hour')

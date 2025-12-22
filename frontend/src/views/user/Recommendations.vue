@@ -12,7 +12,10 @@
       
       <el-tabs v-model="activeTab" @tab-change="handleTabChange">
         <!-- Tab 1: 个性化推荐 -->
-        <el-tab-pane label="🎯 为我推荐" name="personalized">
+        <el-tab-pane name="personalized">
+          <template #label>
+            <span><el-icon><Aim /></el-icon> 为我推荐</span>
+          </template>
       <div v-loading="loading">
             <el-empty v-if="!personalizedRecommendations.length" description="暂无个性化推荐数据" />
             
@@ -114,7 +117,10 @@
         </el-tab-pane>
         
         <!-- Tab 2: 热门图书 -->
-        <el-tab-pane label="🔥 热门图书" name="hot">
+        <el-tab-pane name="hot">
+          <template #label>
+            <span><el-icon><Trophy /></el-icon> 热门图书</span>
+          </template>
           <el-alert title="全校最受欢迎的图书TOP100" type="info" :closable="false" style="margin-bottom: 12px;" />
           
           <el-row :gutter="16" v-if="hotBooks.length" class="chart-row" style="margin-bottom: 8px;">
@@ -185,7 +191,10 @@
         </el-tab-pane>
         
         <!-- Tab 3: 院系推荐 -->
-        <el-tab-pane :label="`📚 ${userDept} 热门榜`" name="dept">
+        <el-tab-pane name="dept">
+          <template #label>
+            <span><el-icon><Reading /></el-icon> {{ userDept }} 热门榜</span>
+          </template>
           <el-alert :title="`${userDept} 最受欢迎的图书TOP30`" type="success" :closable="false" style="margin-bottom: 12px;" />
           
           <el-row :gutter="16" v-if="deptHotBooks.length" class="chart-row" style="margin-bottom: 8px;">

@@ -2,7 +2,10 @@
   <div class="prediction-container">
     <el-tabs v-model="activeTab" type="border-card">
       <!-- 逾期风险预测 -->
-      <el-tab-pane label="🚨 逾期风险预测" name="overdue">
+      <el-tab-pane name="overdue">
+        <template #label>
+          <span><el-icon><Warning /></el-icon> 逾期风险预测</span>
+        </template>
         <el-row :gutter="20" class="stats-row">
           <el-col :xs="24" :sm="6">
             <el-card shadow="hover" class="stat-card">
@@ -59,7 +62,7 @@
         <el-card shadow="hover" style="margin-bottom: 20px;">
           <template #header>
             <div class="card-header">
-              <span>📅 全年逾期风险日历热力图</span>
+              <span><el-icon><Calendar /></el-icon> 全年逾期风险日历热力图</span>
               <el-radio-group v-model="selectedYear" @change="loadCalendarData" size="small">
                 <el-radio-button label="2019">2019年</el-radio-button>
                 <el-radio-button label="2020">2020年</el-radio-button>
@@ -128,7 +131,10 @@
       </el-tab-pane>
 
       <!-- 借阅趋势预测 -->
-      <el-tab-pane label="📈 借阅趋势预测" name="trend">
+      <el-tab-pane name="trend">
+        <template #label>
+          <span><el-icon><TrendCharts /></el-icon> 借阅趋势预测</span>
+        </template>
         <el-row :gutter="20" class="stats-row">
           <el-col :xs="24" :sm="6">
             <el-card shadow="hover" class="stat-card">
@@ -202,7 +208,10 @@
       </el-tab-pane>
 
       <!-- 图书热度预测 -->
-      <el-tab-pane label="🔥 图书热度预测" name="heat">
+      <el-tab-pane name="heat">
+        <template #label>
+          <span><el-icon><Sunrise /></el-icon> 图书热度预测</span>
+        </template>
         <el-row :gutter="20" class="stats-row">
           <el-col :xs="24" :sm="6">
             <el-card shadow="hover" class="stat-card">
@@ -823,7 +832,7 @@ onMounted(async () => {
 
 <style scoped>
 .prediction-container {
-  padding: 0px;
+  padding: 0;
 }
 
 .stats-row {
@@ -832,6 +841,7 @@ onMounted(async () => {
 
 .stat-card {
   text-align: center;
+  margin-bottom: 20px;
 }
 
 .stat-card.danger {
@@ -867,6 +877,5 @@ onMounted(async () => {
 
 .trend-tag {
   padding: 15px 15px;
-
 }
 </style>

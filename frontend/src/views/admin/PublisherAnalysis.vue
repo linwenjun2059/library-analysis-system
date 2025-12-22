@@ -3,18 +3,24 @@
     <el-card shadow="hover">
       <template #header>
         <div class="card-header">
-          <span><el-icon><OfficeBuilding /></el-icon> 出版分析</span>
+          <span><el-icon><OfficeBuilding /></el-icon>出版分析</span>
           <el-button type="primary" size="small" @click="loadAllData" :loading="loading">
-            <el-icon><Refresh /></el-icon> 刷新数据
+            <el-icon><Refresh /></el-icon>刷新数据
           </el-button>
         </div>
       </template>
       
       <el-tabs v-model="mainTab" @tab-change="handleTabChange">
         <!-- Tab 1: 出版社分析 -->
-        <el-tab-pane label="🏢 出版社分析" name="publisher">
+        <el-tab-pane name="publisher">
+          <template #label>
+            <span><el-icon><OfficeBuilding /></el-icon>出版社分析</span>
+          </template>
           <el-tabs v-model="publisherViewMode">
-            <el-tab-pane label="📊 图表视图" name="chart">
+            <el-tab-pane name="chart">
+              <template #label>
+                <span><el-icon><DataAnalysis /></el-icon>图表视图</span>
+              </template>
               <el-row :gutter="20">
                 <el-col :span="24">
                   <el-card shadow="hover">
@@ -45,7 +51,10 @@
               </el-row>
             </el-tab-pane>
             
-            <el-tab-pane label="📋 表格视图" name="table">
+            <el-tab-pane name="table">
+              <template #label>
+                <span><el-icon><List /></el-icon> 表格视图</span>
+              </template>
               <el-table :data="publisherList" v-loading="loading" stripe style="width: 100%">
                 <el-table-column type="index" label="排名" width="80" align="center">
                   <template #default="{ $index }">
@@ -65,9 +74,15 @@
         </el-tab-pane>
         
         <!-- Tab 2: 出版年份分析 -->
-        <el-tab-pane label="📅 出版年份分析" name="year">
+        <el-tab-pane name="year">
+          <template #label>
+            <span><el-icon><Calendar /></el-icon> 出版年份分析</span>
+          </template>
           <el-tabs v-model="yearViewMode">
-            <el-tab-pane label="📊 图表视图" name="chart">
+            <el-tab-pane name="chart">
+              <template #label>
+                <span><el-icon><DataAnalysis /></el-icon> 图表视图</span>
+              </template>
               <el-row :gutter="20">
                 <el-col :span="24">
                   <el-card shadow="hover">
@@ -98,7 +113,10 @@
               </el-row>
             </el-tab-pane>
             
-            <el-tab-pane label="📋 表格视图" name="table">
+            <el-tab-pane name="table">
+              <template #label>
+                <span><el-icon><List /></el-icon> 表格视图</span>
+              </template>
               <el-table :data="yearList" v-loading="loading" stripe style="width: 100%">
                 <el-table-column prop="year" label="出版年份" min-width="120" align="center" sortable />
                 <el-table-column prop="bookCount" label="图书数量" min-width="120" align="center" sortable />
@@ -122,7 +140,7 @@ import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { getPublisherAnalysis, getPublishYearAnalysis } from '@/api/statistics'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
-import { OfficeBuilding, Refresh } from '@element-plus/icons-vue'
+import { OfficeBuilding, Refresh, DataAnalysis, List, Calendar } from '@element-plus/icons-vue'
 
 const loading = ref(false)
 const mainTab = ref('publisher')
@@ -343,6 +361,12 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+:deep(.el-row) {
+  .el-col {
+    margin-bottom: 20px;
+  }
 }
 </style>
 

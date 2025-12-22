@@ -27,12 +27,18 @@
       
       <el-tabs v-model="viewMode">
         <!-- 图表视图 -->
-        <el-tab-pane label="📊 图表视图" name="chart">
+        <el-tab-pane name="chart">
+          <template #label>
+            <span><el-icon><DataAnalysis /></el-icon> 图表视图</span>
+          </template>
           <div ref="chartRef" :style="{ width: '100%', height: chartHeight + 'px' }"></div>
         </el-tab-pane>
         
         <!-- 表格视图 -->
-        <el-tab-pane label="📋 表格视图" name="table">
+        <el-tab-pane name="table">
+          <template #label>
+            <span><el-icon><List /></el-icon> 表格视图</span>
+          </template>
           <el-table 
             :data="bookList" 
             v-loading="loading"
@@ -90,7 +96,7 @@ import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { getBookRanking } from '@/api/book'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
-import { Trophy, Refresh } from '@element-plus/icons-vue'
+import { Trophy, Refresh, DataAnalysis, List } from '@element-plus/icons-vue'
 
 const loading = ref(false)
 const dimension = ref('totalLendCount')
@@ -374,7 +380,7 @@ onUnmounted(() => {
 
 <style scoped>
 .book-ranking-container {
-  padding: 0px;
+  padding: 0;
 }
 
 .card-header {

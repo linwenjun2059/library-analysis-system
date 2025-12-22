@@ -12,7 +12,10 @@
       
       <el-tabs v-model="viewMode">
         <!-- 图表视图 -->
-        <el-tab-pane label="📊 图表视图" name="chart">
+        <el-tab-pane name="chart">
+          <template #label>
+            <span><el-icon><DataAnalysis /></el-icon> 图表视图</span>
+          </template>
           <el-row :gutter="20">
             <el-col :span="24">
               <el-card shadow="hover">
@@ -51,7 +54,10 @@
         </el-tab-pane>
         
         <!-- 表格视图 -->
-        <el-tab-pane label="📋 表格视图" name="table">
+        <el-tab-pane name="table">
+          <template #label>
+            <span><el-icon><List /></el-icon> 表格视图</span>
+          </template>
           <div style="margin-bottom: 15px;">
             <el-space wrap>
               <el-input v-model="searchText" placeholder="搜索用户ID" clearable style="width: 200px;">
@@ -119,6 +125,7 @@ import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { getActiveUsers } from '@/api/statistics'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
+import { DataAnalysis, List } from '@element-plus/icons-vue'
 
 const loading = ref(false)
 const viewMode = ref('chart')

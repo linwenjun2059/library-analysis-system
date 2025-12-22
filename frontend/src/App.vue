@@ -6,6 +6,19 @@
 </script>
 
 <style>
+/* 全局统一样式变量 */
+:root {
+  --kiro-spacing-xs: 8px;
+  --kiro-spacing-sm: 12px;
+  --kiro-spacing-md: 16px;
+  --kiro-spacing-lg: 20px;
+  --kiro-spacing-xl: 24px;
+  --kiro-border-radius-sm: 8px;
+  --kiro-border-radius-md: 12px;
+  --kiro-border-radius-lg: 16px;
+  --kiro-card-margin-bottom: 20px;
+}
+
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 * {
