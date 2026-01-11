@@ -196,9 +196,9 @@ library-analysis-system/
 │   │   ├── config/                   # 配置类（CORS、MyBatis-Plus、Swagger）
 │   │   ├── controller/               # 控制器（6个Controller）
 │   │   ├── dto/                      # 数据传输对象
-│   │   ├── entity/                   # 实体类（29个实体）
+│   │   ├── entity/                   # 实体类（31个实体）
 │   │   ├── exception/                # 异常处理
-│   │   ├── mapper/                   # MyBatis Mapper（29个Mapper）
+│   │   ├── mapper/                   # MyBatis Mapper（31个Mapper）
 │   │   ├── service/                  # 服务层
 │   │   ├── utils/                    # 工具类（JWT等）
 │   │   └── vo/                       # 视图对象
