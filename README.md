@@ -729,11 +729,61 @@ hive -f bigdata/hive/01_create_ods.sql
 - 确认CORS配置正确
 - 检查API地址配置
 
-## 📚 相关文档
+## � 系统展示
 
-- [API文档](http://localhost:8080/api/swagger-ui/index.html)：Swagger接口文档
-- [数据仓库设计](bigdata/hive/)：Hive表结构设计
-- [Spark脚本说明](bigdata/spark/)：数据处理脚本说明
+> 将截图放入 `docs/images/` 目录，图片命名规范如下
+
+### 图片命名规范
+
+| 序号 | 文件名 | 说明 |
+|-----|--------|------|
+| 1 | `01_login.png` | 登录页面 |
+| 2 | `02_admin_dashboard.png` | 高级管理员 - 运营综合看板 |
+| 3 | `03_admin_user_profile.png` | 高级管理员 - 用户画像分析 |
+| 4 | `04_admin_prediction.png` | 高级管理员 - 预测分析 |
+| 5 | `05_admin_book_association.png` | 高级管理员 - 图书关联分析 |
+| 6 | `06_admin_user_clustering.png` | 高级管理员 - 用户聚类分析 |
+| 7 | `07_librarian_dashboard.png` | 图书管理员 - 工作台 |
+| 8 | `08_librarian_book_ranking.png` | 图书管理员 - 图书排行与分析 |
+| 9 | `09_librarian_active_users.png` | 图书管理员 - 活跃用户分析 |
+| 10 | `10_librarian_overdue.png` | 图书管理员 - 逾期情况分析 |
+| 11 | `11_librarian_time_distribution.png` | 图书管理员 - 时间分布分析 |
+| 12 | `12_user_dashboard.png` | 普通用户 - 个人中心 |
+| 13 | `13_user_recommendations.png` | 普通用户 - 图书推荐 |
+| 14 | `14_user_reading_profile.png` | 普通用户 - 我的阅读画像 |
+| 15 | `15_user_ranking.png` | 普通用户 - 我的排名 |
+
+### 登录页面
+
+![登录页面](docs/images/01_login.png)
+
+### 高级管理员页面
+
+| 运营综合看板 | 用户画像分析 |
+|-------------|-------------|
+| ![运营看板](docs/images/02_admin_dashboard.png) | ![用户画像](docs/images/03_admin_user_profile.png) |
+
+| 预测分析 | 图书关联分析 |
+|---------|-------------|
+| ![预测分析](docs/images/04_admin_prediction.png) | ![图书关联](docs/images/05_admin_book_association.png) |
+
+| 用户聚类分析 |
+|-------------|
+| ![用户聚类](docs/images/06_admin_user_clustering.png) |
+
+### 图书管理员页面
+
+| 工作台 | 图书排行与分析 |
+|-------|---------------|
+| ![工作台](docs/images/07_librarian_dashboard.png) | ![图书排行](docs/images/08_librarian_book_ranking.png) |
+
+| 活跃用户分析 | 逾期情况分析 |
+|-------------|-------------|
+| ![活跃用户](docs/images/09_librarian_active_users.png) | ![逾期分析](docs/images/10_librarian_overdue.png) |
+
+| 时间分布分析 |
+|-------------|
+| ![时间分布](docs/images/11_librarian_time_distr
 
 ## 🤝 贡献
 

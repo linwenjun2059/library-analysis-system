@@ -1,3 +1,6 @@
+# 忽略本文件
+.gitignore
+
 # Maven
 backend/target/
 backend/.mvn/
@@ -48,3 +51,7 @@ Thumbs.db
 *.zip
 *.tar.gz
 *.rar
+
+# data
+data/
+
