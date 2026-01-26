@@ -270,6 +270,7 @@ CREATE TABLE `operation_dashboard` (
 
 -- 14. 图书推荐表（离线分析版）
 -- 注意：此表由Spark任务通过mode("overwrite")写入，不包含id和update_time字段
+-- 性能优化：减少索引数量，只保留最常用的查询索引
 DROP TABLE IF EXISTS `book_recommendations`;
 CREATE TABLE `book_recommendations` (
   `userid` VARCHAR(64) NOT NULL COMMENT '用户ID',
@@ -286,10 +287,7 @@ CREATE TABLE `book_recommendations` (
   `content_score` DOUBLE DEFAULT NULL COMMENT '内容推荐得分(0-10)',
   `popularity_score` DOUBLE DEFAULT NULL COMMENT '热门推荐得分(0-10)',
   PRIMARY KEY (`userid`, `book_id`),
-  KEY `idx_userid_rank` (`userid`, `rank_no`),
-  KEY `idx_book_id` (`book_id`),
-  KEY `idx_score` (`score`),
-  KEY `idx_rec_sources` (`rec_sources`)
+  KEY `idx_userid_rank` (`userid`, `rank_no`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='个性化图书推荐表-基于历史数据的离线推荐分析';
 
 -- 15. 推荐效果统计表（推荐分析）

@@ -13,7 +13,6 @@
 - recommendation_stats（统计表）：推荐系统整体效果指标（22项）
 - library_ads.ads_book_recommendation（Hive）：推荐结果存档
 
-Author: Library Analysis System
 """
 
 from pyspark.sql import SparkSession
@@ -52,11 +51,18 @@ class BookRecommender:
             print(f"加载指定月份: {self.year}年{self.month}月")
             where_clause = f"WHERE year = {self.year} AND month = {self.month}"
         
-        # 加载借阅明细
+        # 加载借阅明细（用于训练ALS模型 - 可以是特定时间范围）
         self.lend_detail = self.spark.sql(f"""
             SELECT userid, book_id, lend_date
             FROM library_dwd.dwd_lend_detail
             {where_clause}
+        """)
+        
+        # 关键修复：加载所有历史借阅记录（用于计算用户偏好和热门度）
+        # 用户偏好和热门度应该基于长期历史，而不是单月数据
+        self.lend_detail_all = self.spark.sql("""
+            SELECT userid, book_id, lend_date
+            FROM library_dwd.dwd_lend_detail
         """)
         
         # 加载图书信息（所有）
@@ -71,19 +77,25 @@ class BookRecommender:
             FROM library_dwd.dwd_user_info
         """)
         
-        print(f"借阅记录数: {self.lend_detail.count()}")
-        print(f"图书数量: {self.book_info.count()}")
-        print(f"用户数量: {self.user_info.count()}")
+        # 用户已借阅图书列表（所有历史）
+        self.user_borrowed_books = self.spark.sql("""
+            SELECT userid, collect_set(book_id) as borrowed_books
+            FROM library_dwd.dwd_lend_detail
+            GROUP BY userid
+        """)
+        
+        # 缓存常用数据以提升性能
+        self.lend_detail_all.cache()
+        self.book_info.cache()
+        self.user_borrowed_books.cache()
+        
+        # 只打印关键统计（减少count操作）
+        print(f"数据加载完成")
         
     def collaborative_filtering(self):
         """协同过滤推荐 - 使用ALS算法"""
         print("\n" + "=" * 60)
         print("执行协同过滤推荐（ALS）...")
-        
-        # 记录用户已借阅的图书（用于后续过滤）
-        self.user_borrowed_books = self.lend_detail \
-            .groupBy("userid") \
-            .agg(collect_set("book_id").alias("borrowed_books"))
         
         # 构建用户-图书评分矩阵（隐式反馈）
         user_book_matrix = self.lend_detail \
@@ -122,8 +134,8 @@ class BookRecommender:
         
         model = als.fit(matrix_indexed)
         
-        # 为每个用户推荐TOP20图书
-        user_recs = model.recommendForAllUsers(20)
+        # 关键修改：推荐更多候选（50本），然后过滤已借图书，确保最终有足够的推荐
+        user_recs = model.recommendForAllUsers(50)
         
         # 解析推荐结果
         cf_recs_raw = user_recs \
@@ -150,18 +162,30 @@ class BookRecommender:
                 round(
                     when(col("max_score") > col("min_score"),
                          ((col("raw_cf_score") - col("min_score")) / (col("max_score") - col("min_score"))) * 10
-                    ).otherwise(5.0),  # 如果用户所有推荐得分相同，给中间值
+                    ).otherwise(5.0),
                     2
                 )
             ) \
             .join(book_indexer, "book_index") \
             .join(self.book_info, "book_id") \
+            .join(self.user_borrowed_books, "userid", "left") \
+            .filter(
+                (col("borrowed_books").isNull()) | 
+                (~array_contains(col("borrowed_books"), col("book_id")))
+            ) \
+            .withColumn(
+                "rank",
+                row_number().over(Window.partitionBy("userid").orderBy(desc("cf_score")))
+            ) \
+            .filter(col("rank") <= 20) \
             .select(
                 "userid", "book_id", "title", "author", "subject",
                 col("cf_score").alias("score")
             )
         
-        print(f"协同过滤推荐完成，推荐记录数: {cf_recommendations.count()}")
+        # 缓存结果供后续使用
+        cf_recommendations.cache()
+        print(f"协同过滤推荐完成")
         return cf_recommendations
     
     def content_based_recommend(self):
@@ -169,11 +193,11 @@ class BookRecommender:
         print("\n" + "=" * 60)
         print("执行基于内容的推荐...")
         
-        # 获取所有用户（包括没有历史记录的用户）
+        # 获取所有用户
         all_users = self.user_info.select("userid")
         
-        # 用户历史借阅的主题偏好
-        user_subject_pref = self.lend_detail \
+        # 关键修复：用户偏好应该基于所有历史数据，而不是当前处理月份
+        user_subject_pref = self.lend_detail_all \
             .join(self.book_info, "book_id") \
             .groupBy("userid", "subject") \
             .agg(count("*").alias("subject_count")) \
@@ -181,12 +205,12 @@ class BookRecommender:
                 "rank",
                 row_number().over(Window.partitionBy("userid").orderBy(desc("subject_count")))
             ) \
-            .filter(col("rank") <= 3) \
+            .filter(col("rank") <= 5) \
             .groupBy("userid") \
             .agg(collect_list("subject").alias("preferred_subjects"))
         
-        # 用户历史借阅的作者偏好
-        user_author_pref = self.lend_detail \
+        # 用户历史借阅的作者偏好（扩展到TOP5）
+        user_author_pref = self.lend_detail_all \
             .join(self.book_info, "book_id") \
             .filter(col("author").isNotNull()) \
             .groupBy("userid", "author") \
@@ -195,73 +219,77 @@ class BookRecommender:
                 "rank",
                 row_number().over(Window.partitionBy("userid").orderBy(desc("author_count")))
             ) \
-            .filter(col("rank") <= 3) \
+            .filter(col("rank") <= 5) \
             .groupBy("userid") \
             .agg(collect_list("author").alias("preferred_authors"))
         
-        # 用户已借阅的图书
-        user_borrowed_books = self.lend_detail \
-            .groupBy("userid") \
-            .agg(collect_set("book_id").alias("borrowed_books"))
-        
-        # 合并用户偏好（使用left join确保所有用户都有记录）
+        # 合并用户偏好
         user_preferences = all_users \
             .join(user_subject_pref, "userid", "left") \
             .join(user_author_pref, "userid", "left") \
-            .join(user_borrowed_books, "userid", "left") \
+            .join(self.user_borrowed_books, "userid", "left") \
             .withColumn("preferred_subjects", when(col("preferred_subjects").isNull(), array()).otherwise(col("preferred_subjects"))) \
             .withColumn("preferred_authors", when(col("preferred_authors").isNull(), array()).otherwise(col("preferred_authors"))) \
             .withColumn("borrowed_books", when(col("borrowed_books").isNull(), array()).otherwise(col("borrowed_books")))
         
-        # 为每个用户推荐符合偏好的图书
-        content_recs = user_preferences.crossJoin(
-            self.book_info.select("book_id", "title", "author", "subject")
+        # 只为有历史偏好的用户生成内容推荐
+        users_with_pref = user_preferences.filter(
+            (size(col("preferred_subjects")) > 0) | (size(col("preferred_authors")) > 0)
         )
         
-        # 过滤已借阅的图书，计算内容相似度得分
-        content_recommendations = content_recs \
+        # 关键优化：避免crossJoin，改用explode + join
+        # 将用户偏好展开，然后与图书进行匹配
+        user_subject_exploded = users_with_pref \
+            .select("userid", "borrowed_books", explode("preferred_subjects").alias("pref_subject"))
+        
+        user_author_exploded = users_with_pref \
+            .select("userid", "borrowed_books", explode("preferred_authors").alias("pref_author"))
+        
+        # 按主题匹配图书
+        subject_matches = user_subject_exploded \
+            .join(
+                self.book_info.select("book_id", "title", "author", "subject"),
+                user_subject_exploded.pref_subject == self.book_info.subject
+            ) \
             .filter(~array_contains(col("borrowed_books"), col("book_id"))) \
-            .withColumn(
-                "subject_match",
-                when(
-                    (size(col("preferred_subjects")) > 0) & array_contains(col("preferred_subjects"), col("subject")), 
-                    1.0
-                ).otherwise(0.0)
+            .select("userid", "book_id", "title", "author", "subject", lit(6.0).alias("subject_score"))
+        
+        # 按作者匹配图书
+        author_matches = user_author_exploded \
+            .join(
+                self.book_info.select("book_id", "title", "author", "subject"),
+                user_author_exploded.pref_author == self.book_info.author
             ) \
-            .withColumn(
-                "author_match",
-                when(
-                    (size(col("preferred_authors")) > 0) & array_contains(col("preferred_authors"), col("author")), 
-                    1.0
-                ).otherwise(0.0)
-            ) \
-            .withColumn(
-                "raw_score",
-                col("subject_match") * 0.6 + col("author_match") * 0.4
-            ) \
-            .filter(col("raw_score") > 0) \
+            .filter(~array_contains(col("borrowed_books"), col("book_id"))) \
+            .select("userid", "book_id", "title", "author", "subject", lit(4.0).alias("author_score"))
+        
+        # 合并主题和作者匹配，计算总分
+        content_recommendations = subject_matches \
+            .join(author_matches, ["userid", "book_id", "title", "author", "subject"], "full_outer") \
             .withColumn(
                 "content_score",
-                round(col("raw_score") * 10, 2)  # 归一化：0.4-1.0 -> 4-10分，保留2位
+                round(coalesce(col("subject_score"), lit(0.0)) + coalesce(col("author_score"), lit(0.0)), 2)
             ) \
             .withColumn(
                 "rank",
                 row_number().over(Window.partitionBy("userid").orderBy(desc("content_score")))
             ) \
-            .filter(col("rank") <= 20) \
+            .filter(col("rank") <= 30) \
             .select("userid", "book_id", "title", "author", "subject", col("content_score").alias("score"))
         
-        print(f"基于内容推荐完成，推荐记录数: {content_recommendations.count()}")
+        content_recommendations.cache()
+        print(f"基于内容推荐完成")
         return content_recommendations
     
     def popularity_based_recommend(self):
-        """基于热门度的推荐 - 全局热门图书"""
+        """基于热门度的推荐 - 按主题分类的热门图书（个性化）"""
         print("\n" + "=" * 60)
         print("执行基于热门度的推荐...")
         
-        # 计算图书热度
-        hot_books_raw = self.lend_detail \
-            .groupBy("book_id") \
+        # 关键修复：热门度应该基于所有历史数据，而不是当前处理月份
+        hot_books_by_subject = self.lend_detail_all \
+            .join(self.book_info, "book_id") \
+            .groupBy("subject", "book_id") \
             .agg(
                 count("*").alias("lend_count"),
                 countDistinct("userid").alias("reader_count")
@@ -271,101 +299,171 @@ class BookRecommender:
                 col("lend_count") * 0.6 + col("reader_count") * 0.4
             )
         
-        # 归一化到0-10分范围
+        # 按主题归一化得分到0-10分，并为每个主题选TOP10热门图书
         from pyspark.sql.functions import min as spark_min, max as spark_max
-        stats = hot_books_raw.agg(
-            spark_min("raw_score").alias("min_score"),
-            spark_max("raw_score").alias("max_score")
-        ).collect()[0]
+        subject_window = Window.partitionBy("subject")
         
-        min_score = stats["min_score"]
-        max_score = stats["max_score"]
+        hot_books_normalized = hot_books_by_subject \
+            .withColumn("min_score", spark_min("raw_score").over(subject_window)) \
+            .withColumn("max_score", spark_max("raw_score").over(subject_window)) \
+            .withColumn(
+                "popularity_score",
+                round(
+                    when(col("max_score") > col("min_score"),
+                         ((col("raw_score") - col("min_score")) / (col("max_score") - col("min_score"))) * 10
+                    ).otherwise(5.0),
+                    2
+                )
+            ) \
+            .withColumn(
+                "subject_rank",
+                row_number().over(Window.partitionBy("subject").orderBy(desc("popularity_score")))
+            ) \
+            .filter(col("subject_rank") <= 10) \
+            .select("subject", "book_id", "popularity_score") \
+            .join(self.book_info.select("book_id", "title", "author"), "book_id") \
+            .select("book_id", "title", "author", "subject", "popularity_score")
         
-        # 在Python层面判断边界条件
-        if max_score > min_score:
-            hot_books = hot_books_raw \
-                .withColumn(
-                    "popularity_score",
-                    round(((col("raw_score") - lit(min_score)) / (lit(max_score) - lit(min_score))) * 10, 2)
-                ) \
-                .join(self.book_info, "book_id") \
-                .select("book_id", "title", "author", "subject", "popularity_score") \
-                .orderBy(desc("popularity_score")) \
-                .limit(50)
-        else:
-            # 如果所有得分相同，给固定分数
-            hot_books = hot_books_raw \
-                .withColumn("popularity_score", lit(5.0)) \
-                .join(self.book_info, "book_id") \
-                .select("book_id", "title", "author", "subject", "popularity_score") \
-                .orderBy(desc("lend_count")) \
-                .limit(50)
+        # 关键修复：用户偏好应该基于所有历史数据
+        user_subject_pref = self.lend_detail_all \
+            .join(self.book_info, "book_id") \
+            .groupBy("userid", "subject") \
+            .agg(count("*").alias("subject_count")) \
+            .withColumn(
+                "rank",
+                row_number().over(Window.partitionBy("userid").orderBy(desc("subject_count")))
+            ) \
+            .filter(col("rank") <= 5)  # 取TOP5偏好主题
         
-        # 为没有历史记录的新用户推荐热门图书
+        # 为有历史的用户推荐其偏好主题的热门图书
+        # 关键修改：每个主题只取TOP10，5个主题最多50本候选
+        users_with_history = user_subject_pref.select("userid").distinct()
+        
+        popularity_recs_with_pref = user_subject_pref \
+            .join(hot_books_normalized, "subject") \
+            .join(self.user_borrowed_books, "userid", "left") \
+            .filter(
+                (col("borrowed_books").isNull()) | 
+                (~array_contains(col("borrowed_books"), col("book_id")))
+            ) \
+            .withColumn(
+                "rank",
+                row_number().over(Window.partitionBy("userid").orderBy(desc("popularity_score")))
+            ) \
+            .filter(col("rank") <= 30) \
+            .select("userid", "book_id", "title", "author", "subject", col("popularity_score").alias("score"))
+        
+        # 为没有历史的用户推荐全局热门（多样化）
         all_users = self.user_info.select("userid")
+        users_without_history = all_users.join(users_with_history, "userid", "left_anti")
         
-        popularity_recommendations = all_users.crossJoin(hot_books) \
-            .select(
-                "userid", "book_id", "title", "author", "subject",
-                col("popularity_score").alias("score")
-            )
+        # 优化：为没有历史的用户，直接复制全局TOP30热门图书
+        global_hot_books = hot_books_normalized \
+            .withColumn(
+                "global_rank",
+                row_number().over(Window.orderBy(desc("popularity_score")))
+            ) \
+            .filter(col("global_rank") <= 30) \
+            .select("book_id", "title", "author", "subject", "popularity_score")
         
-        print(f"热门推荐完成，推荐记录数: {popularity_recommendations.count()}")
+        # 使用broadcast join优化小表关联
+        from pyspark.sql.functions import broadcast
+        popularity_recs_without_pref = users_without_history \
+            .crossJoin(broadcast(global_hot_books)) \
+            .join(self.user_borrowed_books, "userid", "left") \
+            .filter(
+                (col("borrowed_books").isNull()) | 
+                (~array_contains(col("borrowed_books"), col("book_id")))
+            ) \
+            .withColumn(
+                "rank",
+                row_number().over(Window.partitionBy("userid").orderBy(desc("popularity_score")))
+            ) \
+            .filter(col("rank") <= 30) \
+            .select("userid", "book_id", "title", "author", "subject", col("popularity_score").alias("score"))
+        
+        # 合并两种推荐
+        popularity_recommendations = popularity_recs_with_pref.union(popularity_recs_without_pref)
+        
+        popularity_recommendations.cache()
+        print(f"热门推荐完成")
         return popularity_recommendations
     
     def hybrid_recommend(self, cf_recs, content_recs, popularity_recs):
-        """混合推荐 - 融合多种推荐策略"""
+        """混合推荐 - 融合多种推荐策略，并确保多样性"""
         print("\n" + "=" * 60)
         print("执行混合推荐...")
         
-        # 为三种推荐结果添加标识（保持统一的列名以便union）
-        cf_recs_marked = cf_recs.withColumn("rec_type", lit("cf"))
-        content_recs_marked = content_recs.withColumn("rec_type", lit("content"))
-        popularity_recs_marked = popularity_recs.withColumn("rec_type", lit("popularity"))
+        # 关键优化：先按 userid+book_id 聚合（减少 shuffle 数据量），再关联图书信息
+        # 为三种推荐结果添加标识和权重
+        cf_recs_weighted = cf_recs.select(
+            "userid", "book_id", "subject",
+            (col("score") * 0.5).alias("weighted_score"),
+            lit(0.5).alias("weight"),
+            col("score").alias("cf_score"),
+            lit(None).cast("double").alias("content_score"),
+            lit(None).cast("double").alias("popularity_score"),
+            lit("cf").alias("rec_type")
+        )
         
-        # 合并推荐结果（列名: userid, book_id, title, author, subject, score, rec_type）
-        all_recs = cf_recs_marked.union(content_recs_marked).union(popularity_recs_marked)
+        content_recs_weighted = content_recs.select(
+            "userid", "book_id", "subject",
+            (col("score") * 0.3).alias("weighted_score"),
+            lit(0.3).alias("weight"),
+            lit(None).cast("double").alias("cf_score"),
+            col("score").alias("content_score"),
+            lit(None).cast("double").alias("popularity_score"),
+            lit("content").alias("rec_type")
+        )
         
-        # 过滤已借图书
-        all_recs_filtered = all_recs.join(self.user_borrowed_books, "userid", "left") \
-            .filter(
-                ~array_contains(col("borrowed_books"), col("book_id")) |
-                col("borrowed_books").isNull()
-            )
+        popularity_recs_weighted = popularity_recs.select(
+            "userid", "book_id", "subject",
+            (col("score") * 0.2).alias("weighted_score"),
+            lit(0.2).alias("weight"),
+            lit(None).cast("double").alias("cf_score"),
+            lit(None).cast("double").alias("content_score"),
+            col("score").alias("popularity_score"),
+            lit("popularity").alias("rec_type")
+        )
         
-        # 按用户+图书聚合，使用加权平均（不同算法权重不同）
-        # 同时保留各算法的分项得分用于离线分析
-        hybrid_recs = all_recs_filtered.groupBy("userid", "book_id", "title", "author", "subject") \
+        # 合并并聚合（只按 userid, book_id, subject 聚合，减少 shuffle）
+        all_recs = cf_recs_weighted.union(content_recs_weighted).union(popularity_recs_weighted)
+        
+        hybrid_recs_agg = all_recs.groupBy("userid", "book_id", "subject") \
             .agg(
-                # 加权得分计算
-                sum(
-                    when(col("rec_type") == "cf", col("score") * 0.5)  # 协同过滤权重50%
-                    .when(col("rec_type") == "content", col("score") * 0.3)  # 内容推荐权重30%
-                    .when(col("rec_type") == "popularity", col("score") * 0.2)  # 热门推荐权重20%
-                ).alias("weighted_score"),
-                sum(
-                    when(col("rec_type") == "cf", 0.5)
-                    .when(col("rec_type") == "content", 0.3)
-                    .when(col("rec_type") == "popularity", 0.2)
-                ).alias("total_weight"),
-                # 保留各算法的分项得分（用于离线分析），使用max()聚合获取各算法分数
-                max(when(col("rec_type") == "cf", col("score"))).alias("cf_score"),
-                max(when(col("rec_type") == "content", col("score"))).alias("content_score"),
-                max(when(col("rec_type") == "popularity", col("score"))).alias("popularity_score"),
+                sum("weighted_score").alias("weighted_score"),
+                sum("weight").alias("total_weight"),
+                max("cf_score").alias("cf_score"),
+                max("content_score").alias("content_score"),
+                max("popularity_score").alias("popularity_score"),
                 collect_set("rec_type").alias("rec_types")
             ) \
             .withColumn(
                 "final_score",
-                round(col("weighted_score") / col("total_weight"), 2)  # 加权平均，保留2位小数
-            ) \
-            .withColumn(
-                "rank",
-                row_number().over(Window.partitionBy("userid").orderBy(desc("final_score")))
-            ) \
+                round(col("weighted_score") / col("total_weight"), 2)
+            )
+        
+        # 多样性约束：每个主题最多6本
+        MAX_PER_SUBJECT = 6
+        subject_window = Window.partitionBy("userid", "subject").orderBy(desc("final_score"))
+        
+        subject_limited = hybrid_recs_agg \
+            .withColumn("subject_rank", row_number().over(subject_window)) \
+            .filter(col("subject_rank") <= MAX_PER_SUBJECT)
+        
+        # 最终排序取TOP20
+        final_window = Window.partitionBy("userid").orderBy(desc("final_score"))
+        
+        diverse_recs_core = subject_limited \
+            .withColumn("rank", row_number().over(final_window)) \
             .filter(col("rank") <= 20) \
-            .withColumn(
-                "rec_sources",
-                concat_ws(",", col("rec_types"))  # 记录推荐来源组合
+            .withColumn("rec_sources", concat_ws(",", col("rec_types")))
+        
+        # 最后关联图书信息（title, author）
+        diverse_recs = diverse_recs_core \
+            .join(
+                self.book_info.select("book_id", "title", "author"),
+                "book_id"
             ) \
             .withColumn(
                 "reason",
@@ -374,22 +472,28 @@ class BookRecommender:
                     concat(
                         lit("综合推荐："),
                         when(array_contains(col("rec_types"), "cf"), lit("相似借阅者也喜欢；")).otherwise(lit("")),
-                        when(array_contains(col("rec_types"), "content"), concat(lit("符合你的"), col("subject"), lit("偏好；"))).otherwise(lit("")),
+                        when(array_contains(col("rec_types"), "content"), lit("符合你的阅读偏好；")).otherwise(lit("")),
                         when(array_contains(col("rec_types"), "popularity"), lit("热门图书")).otherwise(lit(""))
                     )
                 ).when(
                     array_contains(col("rec_types"), "cf"),
-                    concat(lit("与你借阅过《"), col("title"), lit("》相似"))
+                    lit("基于相似用户的借阅偏好推荐")
                 ).when(
                     array_contains(col("rec_types"), "content"),
-                    concat(lit("基于你的"), col("subject"), lit("阅读偏好"))
+                    lit("基于你的历史阅读偏好推荐")
                 ).otherwise(
                     lit("热门图书推荐")
                 )
+            ) \
+            .select(
+                "userid", "book_id", "title", "author", "subject",
+                "final_score", "cf_score", "content_score", "popularity_score",
+                "rec_sources", "rec_types", "reason", "rank"
             )
         
-        print(f"混合推荐完成，推荐记录数: {hybrid_recs.count()}")
-        return hybrid_recs
+        diverse_recs.cache()
+        print(f"混合推荐完成（含多样性约束）")
+        return diverse_recs
     
     def save_recommendations(self, recommendations, cf_recs, content_recs, popularity_recs):
         """保存推荐结果到ADS层和MySQL"""
@@ -405,7 +509,7 @@ class BookRecommender:
         }
         
         # 1. 保存混合推荐结果（主表）
-        print("  [1/3] 保存混合推荐结果...")
+        print("  [1/3] 保存混合推荐结果到MySQL...")
         
         # 计算多样性得分（推荐列表中不同主题/作者的比例）
         user_diversity = recommendations.groupBy("userid").agg(
@@ -429,22 +533,40 @@ class BookRecommender:
                 "reason",
                 col("rank").alias("rank_no"),
                 col("diversity_score"),
-                col("cf_score"),           # 协同过滤分项得分
-                col("content_score"),      # 内容推荐分项得分
-                col("popularity_score")    # 热门推荐分项得分
+                col("cf_score"),
+                col("content_score"),
+                col("popularity_score")
             )
         
-        recommend_flat.write \
+        # 关键优化1：减少分区数，提升写入并行度
+        # 将数据重新分区到4个分区（平衡并行度和开销）
+        recommend_flat_optimized = recommend_flat.repartition(4)
+        
+        # 关键优化2：缓存后再写入，避免重复计算
+        recommend_flat_optimized.cache()
+        total_count = recommend_flat_optimized.count()  # 触发缓存并获取总数
+        print(f"    准备写入 {total_count} 条推荐记录...")
+        
+        # 关键优化3：写入MySQL（使用更大的批量和并行写入）
+        recommend_flat_optimized.write \
             .mode("overwrite") \
+            .option("batchsize", "50000") \
+            .option("isolationLevel", "NONE") \
+            .option("numPartitions", "4") \
+            .option("rewriteBatchedStatements", "true") \
             .jdbc(mysql_url, "book_recommendations", properties=mysql_properties)
         
-        print(f"    ✓ 混合推荐已保存: {recommend_flat.count()} 条")
+        print(f"    ✓ MySQL推荐结果已保存 ({total_count} 条)")
+        
+        # 后续使用优化后的DataFrame
+        recommend_flat = recommend_flat_optimized
         
         # 2. 保存推荐效果统计
-        print("  [2/3] 保存推荐效果统计...")
+        print("  [2/3] 保存推荐效果统计到MySQL...")
         
-        # 缓存DataFrame以复用
-        recommend_flat.cache()
+        # 优化：缓存user_info避免重复扫描
+        self.user_info.cache()
+        total_users = self.user_info.count()
         
         # 合并多个聚合操作到一次扫描
         from pyspark.sql.functions import sum as spark_sum, when
@@ -466,7 +588,6 @@ class BookRecommender:
             avg(when(col("popularity_score").isNotNull(), col("popularity_score"))).alias("avg_pop")
         ).collect()[0]
         
-        total_users = self.user_info.count()
         recommended_users = stats_agg["recommended_users"]
         total_recs = stats_agg["total_recs"]
         avg_score = stats_agg["avg_score"]
@@ -514,12 +635,12 @@ class BookRecommender:
             .mode("overwrite") \
             .jdbc(mysql_url, "recommendation_stats", properties=mysql_properties)
         
-        print(f"    ✓ 推荐统计已保存: {len(stats_data)} 项指标")
+        print(f"    ✓ MySQL统计数据已保存: {len(stats_data)} 项指标")
         
-        # 3. 保存到Hive ADS层（按year/month分区）
+        # 3. 保存到Hive ADS层（扁平结构，快速写入）
         print("  [3/3] 保存到Hive ADS层...")
         
-        # 获取数据集最新日期（离线分析，不使用系统当前时间）
+        # 优化：从缓存的lend_detail获取最新日期，避免重复扫描
         latest_date_result = self.lend_detail.agg(max("lend_date")).collect()
         if latest_date_result and latest_date_result[0][0]:
             dataset_latest_date = latest_date_result[0][0]
@@ -527,30 +648,24 @@ class BookRecommender:
             dataset_year = dataset_latest_date.year
             dataset_month = dataset_latest_date.month
         else:
-            # 默认值
             dataset_latest_date_str = "2020-12-31"
             dataset_year = 2020
             dataset_month = 12
         
-        recommend_struct = recommendations.groupBy("userid") \
-            .agg(
-                collect_list(
-                    struct(
-                        col("book_id"),
-                        col("title"),
-                        col("author"),
-                        col("subject"),
-                        col("final_score").alias("score"),
-                        col("reason")
-                    )
-                ).alias("recommend_books")
-            ) \
+        # 直接保存扁平结构（比嵌套结构快很多）
+        recommend_hive = recommend_flat \
             .withColumn("recommend_date", lit(dataset_latest_date_str)) \
             .withColumn("algorithm_type", lit("hybrid")) \
             .withColumn("year", lit(dataset_year)) \
-            .withColumn("month", lit(dataset_month))
+            .withColumn("month", lit(dataset_month)) \
+            .select(
+                "userid", "book_id", "title", "author", "subject",
+                "score", "rec_sources", "reason", "rank_no",
+                "recommend_date", "algorithm_type", "year", "month"
+            )
         
-        recommend_struct.write \
+        # 优化：使用更少的分区数加速写入
+        recommend_hive.coalesce(2).write \
             .mode("overwrite") \
             .partitionBy("year", "month") \
             .format("parquet") \
@@ -558,7 +673,13 @@ class BookRecommender:
         
         print("    ✓ Hive ADS层已保存")
         
+        # 释放缓存
+        recommend_flat.unpersist()
+        
         print("\n推荐结果保存完成！")
+        print(f"  - MySQL推荐记录: {total_recs} 条")
+        print(f"  - 覆盖用户: {recommended_users} 人")
+        print(f"  - 平均得分: {avg_score:.2f} 分")
     
     def run(self):
         """运行推荐流程"""

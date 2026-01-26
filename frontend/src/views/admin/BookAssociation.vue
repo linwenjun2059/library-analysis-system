@@ -92,7 +92,7 @@
         <el-table-column label="置信度" width="120" align="center">
           <template #default="{ row }">
             <el-progress 
-              :percentage="(row.confidence * 100).toFixed(1)" 
+              :percentage="parseFloat((row.confidence * 100).toFixed(1))" 
               :stroke-width="10"
               :format="() => (row.confidence * 100).toFixed(1) + '%'"
             />
@@ -102,6 +102,13 @@
           <template #default="{ row }">
             <el-tag :type="row.lift > 100 ? 'danger' : row.lift > 10 ? 'warning' : 'success'">
               {{ row.lift.toFixed(2) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="支持度" width="100" align="center">
+          <template #default="{ row }">
+            <el-tag type="info">
+              {{ (row.support * 100).toFixed(3) }}%
             </el-tag>
           </template>
         </el-table-column>
@@ -154,7 +161,9 @@ const loadStats = async () => {
     const res = await getAssociationStats()
     if (res.code === 200) {
       stats.value = res.data
+      await nextTick()
       renderTypeChart()
+      renderConfidenceChart()
     }
   } catch (error) {
     console.error('加载统计失败:', error)
@@ -173,7 +182,6 @@ const loadRules = async () => {
     if (res.code === 200) {
       rules.value = res.data.records
       total.value = res.data.total
-      renderConfidenceChart()
     }
   } catch (error) {
     console.error('加载规则失败:', error)
@@ -235,24 +243,23 @@ const renderTypeChart = () => {
 }
 
 const renderConfidenceChart = () => {
-  if (!confidenceChartRef.value || rules.value.length === 0) return
+  if (!confidenceChartRef.value) return
   
   if (!confidenceChart) {
     confidenceChart = echarts.init(confidenceChartRef.value)
   }
   
-  // 统计置信度分布
-  const ranges = ['0-20%', '20-40%', '40-60%', '60-80%', '80-100%']
-  const counts = [0, 0, 0, 0, 0]
+  // 从统计数据中获取置信度分布（后端已经统计好了全量数据）
+  const confidenceDistribution = stats.value.confidenceDistribution || {}
   
-  rules.value.forEach(rule => {
-    const conf = rule.confidence * 100
-    if (conf < 20) counts[0]++
-    else if (conf < 40) counts[1]++
-    else if (conf < 60) counts[2]++
-    else if (conf < 80) counts[3]++
-    else counts[4]++
-  })
+  const ranges = ['0-20%', '20-40%', '40-60%', '60-80%', '80-100%']
+  const counts = [
+    confidenceDistribution['0-20'] || 0,
+    confidenceDistribution['20-40'] || 0,
+    confidenceDistribution['40-60'] || 0,
+    confidenceDistribution['60-80'] || 0,
+    confidenceDistribution['80-100'] || 0
+  ]
   
   const option = {
     tooltip: {
@@ -261,7 +268,11 @@ const renderConfidenceChart = () => {
     },
     xAxis: {
       type: 'category',
-      data: ranges
+      data: ranges,
+      axisLabel: {
+        interval: 0,
+        rotate: 0
+      }
     },
     yAxis: {
       type: 'value',

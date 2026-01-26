@@ -58,8 +58,8 @@ class AdvancedAnalyzer:
         # 加载借阅明细
         self.lend_detail = self.spark.table("library_dwd.dwd_lend_detail")
         
-        # 加载图书信息
-        self.book_info = self.spark.table("library_dwd.dwd_book_info")
+        # 加载图书信息并缓存（小表，频繁使用）
+        self.book_info = self.spark.table("library_dwd.dwd_book_info").cache()
         
         # 加载用户信息
         self.user_info = self.spark.table("library_dwd.dwd_user_info")
@@ -75,9 +75,12 @@ class AdvancedAnalyzer:
         else:
             self.dataset_latest_date = "2020-12-31"
         
-        print(f"借阅记录数: {self.lend_detail.count():,}")
-        print(f"图书数量: {self.book_info.select('book_id').distinct().count():,}")
-        print(f"用户数量: {self.user_info.select('userid').distinct().count():,}")
+        # 优化：使用采样估算数据量，避免全表扫描（仅用于日志输出）
+        sample_fraction = 0.01  # 1%采样
+        lend_sample_count = self.lend_detail.sample(False, sample_fraction).count()
+        estimated_lend_count = int(lend_sample_count / sample_fraction)
+        
+        print(f"借阅记录数（估算）: ~{estimated_lend_count:,}")
         print(f"数据集最新日期: {self.dataset_latest_date}")
     
     # ==================== 关联规则分析 ====================
@@ -100,7 +103,10 @@ class AdvancedAnalyzer:
         # 过滤：只保留借阅2本及以上的用户（否则无法产生关联规则）
         user_books_filtered = user_books.filter(size(col("items")) >= 2)
         
-        print(f"  有效用户数（借阅>=2本）: {user_books_filtered.count():,}")
+        # 缓存以避免重复计算
+        user_books_filtered.cache()
+        user_count = user_books_filtered.count()
+        print(f"  有效用户数（借阅>=2本）: {user_count:,}")
         
         # 2. FPGrowth模型训练
         # minSupport: 最小支持度（项集出现的最小频率）
@@ -109,14 +115,13 @@ class AdvancedAnalyzer:
         
         # 计算合理的最小支持度（至少3个用户借阅过）
         import builtins
-        user_count = user_books_filtered.count()
         min_support_value = builtins.max(3.0 / user_count, 0.0003)  # 至少3人，或0.03%
         print(f"  计算的最小支持度: {min_support_value:.6f} (约{int(min_support_value * user_count)}人)")
         
         fp_growth = FPGrowth(
             itemsCol="items",
             minSupport=min_support_value,
-            minConfidence=0.1     # 10%的置信度（图书数据稀疏，降低要求）
+            minConfidence=0.2     # 20%的置信度（与后续过滤保持一致）
         )
         
         model = fp_growth.fit(user_books_filtered)
@@ -148,12 +153,40 @@ class AdvancedAnalyzer:
             print(f"  重试后关联规则数量: {rules_count:,}")
         
         # 5. 构建图书关联结果表
-        # 获取图书标题映射
-        book_titles = self.book_info.groupBy("book_id").agg(
-            first("title").alias("title"),
-            first("author").alias("author"),
-            first("subject").alias("subject")
+        # 获取图书标题映射（去重，确保每个book_id只有一条记录）
+        book_titles = self.book_info \
+            .select("book_id", "title", "author", "subject") \
+            .dropDuplicates(["book_id"])
+        
+        # 缓存图书信息以提升性能（小表，使用broadcast）
+        book_titles.cache()
+        
+        # 提前准备两个别名的DataFrame，避免重复select
+        book_titles_ant = book_titles.select(
+            col("book_id").alias("ant_book_id"),
+            col("title").alias("antecedent_title"),
+            col("subject").alias("antecedent_subject")
         )
+        book_titles_con = book_titles.select(
+            col("book_id").alias("con_book_id"),
+            col("title").alias("consequent_title"),
+            col("subject").alias("consequent_subject")
+        )
+        
+        # 定义空表schema（复用）
+        empty_schema = StructType([
+            StructField("antecedent", ArrayType(StringType()), True),
+            StructField("consequent", ArrayType(StringType()), True),
+            StructField("antecedent_title", StringType(), True),
+            StructField("consequent_title", StringType(), True),
+            StructField("antecedent_subject", StringType(), True),
+            StructField("consequent_subject", StringType(), True),
+            StructField("confidence", DoubleType(), True),
+            StructField("lift", DoubleType(), True),
+            StructField("support", DoubleType(), True),
+            StructField("rule_description", StringType(), True),
+            StructField("association_type", StringType(), True)
+        ])
         
         # 解析关联规则，转换book_id为标题
         # antecedent: 前项（如果借了这些书）
@@ -163,74 +196,140 @@ class AdvancedAnalyzer:
         # support: 支持度
         
         if rules_count > 0:
-            # 展开规则，获取前项和后项的第一本书（简化展示）
-            book_association = association_rules \
+            # 先统计原始规则的分布情况（诊断信息）
+            print("  分析原始规则分布...")
+            single_item_rules = association_rules \
+                .filter(size(col("antecedent")) == 1) \
+                .filter(size(col("consequent")) == 1)
+            single_item_count = single_item_rules.count()
+            print(f"  单项规则数量: {single_item_count:,} / {rules_count:,}")
+            
+            # 计算最小支持度阈值
+            # 对于极度稀疏的图书数据，直接使用FPGrowth的minSupport
+            # 不再额外提高阈值，避免过度过滤
+            min_support_threshold = min_support_value
+            
+            print(f"  应用过滤条件：支持度>={min_support_threshold:.6f}, 置信度>=25%, 提升度>1.0")
+            
+            # 过滤条件：
+            # 1. 单项规则
+            # 2. 非自关联
+            # 3. 支持度>=阈值
+            # 4. 置信度>=25%（略低于FPGrowth的20%，保留更多规则）
+            # 5. 提升度>1（不设上限）
+            rules_filtered = association_rules \
+                .filter(size(col("antecedent")) == 1) \
+                .filter(size(col("consequent")) == 1) \
                 .withColumn("antecedent_book", element_at(col("antecedent"), 1)) \
                 .withColumn("consequent_book", element_at(col("consequent"), 1)) \
-                .join(
-                    book_titles.select(
-                        col("book_id").alias("ant_book_id"),
-                        col("title").alias("antecedent_title"),
-                        col("subject").alias("antecedent_subject")
-                    ),
-                    col("antecedent_book") == col("ant_book_id"),
-                    "left"
-                ) \
-                .join(
-                    book_titles.select(
-                        col("book_id").alias("con_book_id"),
-                        col("title").alias("consequent_title"),
-                        col("subject").alias("consequent_subject")
-                    ),
-                    col("consequent_book") == col("con_book_id"),
-                    "left"
-                ) \
-                .select(
-                    col("antecedent"),
-                    col("consequent"),
-                    col("antecedent_title"),
-                    col("consequent_title"),
-                    col("antecedent_subject"),
-                    col("consequent_subject"),
-                    round(col("confidence"), 4).alias("confidence"),
-                    round(col("lift"), 4).alias("lift"),
-                    round(col("support"), 6).alias("support"),
-                    # 生成可读的规则描述
-                    concat(
-                        lit("借阅《"), col("antecedent_title"), lit("》的读者"),
-                        round(col("confidence") * 100, 1), lit("%会借《"),
-                        col("consequent_title"), lit("》")
-                    ).alias("rule_description"),
-                    # 判断是否同主题关联
-                    when(
-                        col("antecedent_subject") == col("consequent_subject"),
-                        lit("同主题关联")
-                    ).otherwise(lit("跨主题关联")).alias("association_type")
-                ) \
-                .orderBy(desc("confidence"), desc("lift")) \
-                .limit(500)  # 保留TOP500规则
+                .filter(col("antecedent_book") != col("consequent_book")) \
+                .filter(col("support") >= min_support_threshold) \
+                .filter(col("confidence") >= 0.25) \
+                .filter(col("lift") > 1.0)
+            
+            # 检查过滤后是否还有规则（优化：使用take(1)判断是否为空，避免全量count）
+            has_rules = len(rules_filtered.take(1)) > 0
+            
+            if not has_rules:
+                print("  ⚠ 过滤后无有效规则，放宽条件...")
+                # 放宽条件：降低置信度到20%，降低支持度到3人
+                min_support_relaxed = builtins.max(3.0 / user_count, min_support_value)
+                rules_filtered = association_rules \
+                    .filter(size(col("antecedent")) == 1) \
+                    .filter(size(col("consequent")) == 1) \
+                    .withColumn("antecedent_book", element_at(col("antecedent"), 1)) \
+                    .withColumn("consequent_book", element_at(col("consequent"), 1)) \
+                    .filter(col("antecedent_book") != col("consequent_book")) \
+                    .filter(col("support") >= min_support_relaxed) \
+                    .filter(col("confidence") >= 0.2) \
+                    .filter(col("lift") > 1.0)
+                has_rules = len(rules_filtered.take(1)) > 0
+                if has_rules:
+                    print(f"  放宽后有有效规则（支持度>={min_support_relaxed:.6f}, 置信度>=20%）")
+                else:
+                    print(f"  放宽后仍无有效规则")
+            else:
+                print(f"  过滤后有有效规则")
+            
+            if has_rules:
+                # 去除完全重复的规则（相同的前项、后项）
+                rules_unique = rules_filtered.dropDuplicates(["antecedent_book", "consequent_book"])
+                
+                # 注意：不做对称去重（A→B 和 B→A 都保留）
+                # 因为在图书推荐场景中，两个方向可能都有意义
+                # 例如：借了A的人会借B（置信度80%），借了B的人会借A（置信度60%）
+                # 这两条规则提供了不同的信息
+                
+                # 关联图书信息（使用broadcast join优化）
+                book_association = rules_unique \
+                    .join(
+                        F.broadcast(book_titles_ant),
+                        col("antecedent_book") == col("ant_book_id"),
+                        "left"
+                    ) \
+                    .join(
+                        F.broadcast(book_titles_con),
+                        col("consequent_book") == col("con_book_id"),
+                        "left"
+                    ) \
+                    .filter(col("antecedent_title").isNotNull()) \
+                    .filter(col("consequent_title").isNotNull()) \
+                    .select(
+                        col("antecedent"),
+                        col("consequent"),
+                        col("antecedent_title"),
+                        col("consequent_title"),
+                        col("antecedent_subject"),
+                        col("consequent_subject"),
+                        round(col("confidence"), 4).alias("confidence"),
+                        round(col("lift"), 4).alias("lift"),
+                        round(col("support"), 6).alias("support"),
+                        # 生成可读的规则描述
+                        concat(
+                            lit("借阅《"), col("antecedent_title"), lit("》的读者"),
+                            round(col("confidence") * 100, 1), lit("%会借《"),
+                            col("consequent_title"), lit("》")
+                        ).alias("rule_description"),
+                        # 判断是否同主题关联
+                        when(
+                            col("antecedent_subject") == col("consequent_subject"),
+                            lit("同主题关联")
+                        ).otherwise(lit("跨主题关联")).alias("association_type")
+                    )
+                
+                # 排序策略：平衡提升度和支持度
+                # 1. 先按关联类型排序（跨主题关联优先，更有价值）
+                # 2. 再按支持度*提升度的综合得分排序（平衡流行度和关联强度）
+                # 3. 最后按置信度排序
+                book_association = book_association \
+                    .withColumn("score", col("support") * col("lift")) \
+                    .orderBy(
+                        when(col("association_type") == "跨主题关联", 1).otherwise(2),
+                        desc("score"),
+                        desc("confidence")
+                    ) \
+                    .drop("score") \
+                    .limit(1000)  # 保留TOP1000规则（增加容量）
+                
+                # 缓存结果以便后续统计和写入
+                book_association.cache()
+            else:
+                # 过滤后无规则，创建空表
+                print("  ⚠ 放宽条件后仍无有效规则")
+                book_association = self.spark.createDataFrame([], empty_schema)
         else:
             # 如果没有规则，创建空表
-            schema = StructType([
-                StructField("antecedent", ArrayType(StringType()), True),
-                StructField("consequent", ArrayType(StringType()), True),
-                StructField("antecedent_title", StringType(), True),
-                StructField("consequent_title", StringType(), True),
-                StructField("antecedent_subject", StringType(), True),
-                StructField("consequent_subject", StringType(), True),
-                StructField("confidence", DoubleType(), True),
-                StructField("lift", DoubleType(), True),
-                StructField("support", DoubleType(), True),
-                StructField("rule_description", StringType(), True),
-                StructField("association_type", StringType(), True)
-            ])
-            book_association = self.spark.createDataFrame([], schema)
+            print("  ⚠ FPGrowth未生成任何关联规则")
+            book_association = self.spark.createDataFrame([], empty_schema)
         
         # 6. 保存到Hive
         book_association.write \
             .mode("overwrite") \
             .format("parquet") \
             .saveAsTable("library_ads.ads_book_association")
+        
+        # 统计规则数量（在写入后，利用缓存）
+        final_count = book_association.count()
         
         # 7. 保存到MySQL
         # 转换数组为字符串以便MySQL存储
@@ -255,7 +354,15 @@ class AdvancedAnalyzer:
             .mode("overwrite") \
             .jdbc(self.mysql_url, "book_association_rules", properties=self.mysql_properties)
         
-        final_count = book_association.count()
+        # 释放book_association缓存
+        if 'book_association' in locals():
+            book_association.unpersist()
+        
+        # 释放其他缓存
+        user_books_filtered.unpersist()
+        book_titles.unpersist()
+        # 注意：book_info在load_data中缓存，在run()结束时统一释放
+        
         print(f"✓ 图书关联规则完成: {final_count:,} 条规则")
         
         # 打印示例规则
@@ -279,31 +386,34 @@ class AdvancedAnalyzer:
         print("[2/2] 读者聚类分群（K-means）...")
         
         # 1. 合并用户汇总数据（从 DWS 层获取用户统计特征）
+        # 获取用户最新信息（按分区排序，取最新的）
+        user_info_latest = self.user_info \
+            .withColumn("partition_key", concat(col("year"), lit("-"), col("month"))) \
+            .withColumn("rank", F.row_number().over(
+                Window.partitionBy("userid").orderBy(desc("year"), desc("month"))
+            )) \
+            .filter(col("rank") == 1) \
+            .select("userid", "dept", "redr_type_name", "occupation")
+        
         user_features = self.user_summary \
-            .join(
-                self.user_info.groupBy("userid").agg(
-                    first("dept").alias("dept"),
-                    first("redr_type_name").alias("user_type"),
-                    first("occupation").alias("occupation")
-                ),
-                "userid",
-                "left"
-            ) \
+            .join(user_info_latest, "userid", "left") \
             .select(
                 "userid",
                 "dept",
-                "user_type",
+                col("redr_type_name").alias("user_type"),
                 "occupation",
                 col("total_lend_count").cast("long").alias("borrow_count"),
-                col("active_days").cast("int").alias("active_days"),  # BIGINT转INT
+                col("active_days").cast("int").alias("active_days"),
                 col("overdue_rate").cast("double").alias("overdue_rate"),
                 col("avg_borrow_days").cast("double").alias("avg_borrow_days"),
                 col("renew_count").cast("long").alias("renew_count")
             )
         
         # 2. 计算阅读广度（涉及主题数）
+        # 使用broadcast join优化（book_info已缓存）
+        book_subject = self.book_info.select("book_id", "subject")
         user_breadth = self.lend_detail \
-            .join(self.book_info.select("book_id", "subject"), "book_id") \
+            .join(F.broadcast(book_subject), "book_id") \
             .groupBy("userid") \
             .agg(countDistinct("subject").cast("int").alias("reading_breadth"))
         
@@ -311,13 +421,13 @@ class AdvancedAnalyzer:
             .na.fill(0, ["reading_breadth"])
         
         # 3. 准备聚类特征（数值型）
+        # 注意：移除overdue_rate和renew_count，它们的区分度不够
+        # 聚焦于借阅行为的核心特征
         feature_cols = [
-            "borrow_count",
-            "active_days", 
-            "overdue_rate",
-            "avg_borrow_days",
-            "renew_count",
-            "reading_breadth"
+            "borrow_count",      # 借阅数量（核心特征）
+            "active_days",       # 活跃天数（核心特征）
+            "avg_borrow_days",   # 平均借阅天数（反映阅读深度）
+            "reading_breadth"    # 阅读广度（反映兴趣范围）
         ]
         
         # 过滤有效数据
@@ -325,7 +435,13 @@ class AdvancedAnalyzer:
             .na.fill(0, feature_cols) \
             .filter(col("borrow_count") > 0)  # 至少有借阅记录
         
-        print(f"  聚类用户数: {user_features_clean.count():,}")
+        clustering_user_count = user_features_clean.count()
+        print(f"  聚类用户数: {clustering_user_count:,}")
+        
+        # 边界检查：用户数必须足够多才能聚类
+        if clustering_user_count < 20:
+            print(f"  ⚠ 用户数太少（<20），跳过聚类分析")
+            return None
         
         # 4. 特征向量化
         assembler = VectorAssembler(
@@ -347,7 +463,12 @@ class AdvancedAnalyzer:
         # 6. 确定最佳K值（使用轮廓系数）
         print("  评估最佳聚类数...")
         silhouette_scores = []
-        k_range = range(3, 8)  # 测试3-7个聚类
+        # 动态调整K的范围：最大不超过用户数的1/10，最小为3
+        max_k = min(7, clustering_user_count // 10)
+        k_range = range(3, max_k + 1) if max_k >= 3 else [3]
+        
+        # 缓存标准化后的向量，避免重复计算
+        user_vectors_scaled.cache()
         
         for k in k_range:
             kmeans = KMeans(k=k, seed=42, featuresCol="features", predictionCol="cluster")
@@ -365,8 +486,12 @@ class AdvancedAnalyzer:
         
         # 选择轮廓系数最高的K（使用Python内置max，不是PySpark的max）
         import builtins
-        best_k = builtins.max(silhouette_scores, key=lambda x: x[1])[0]
-        print(f"  最佳聚类数: K={best_k}")
+        best_k, best_silhouette = builtins.max(silhouette_scores, key=lambda x: x[1])
+        print(f"  最佳聚类数: K={best_k} (轮廓系数={best_silhouette:.4f})")
+        
+        # 如果最佳轮廓系数太低（<0.2），说明聚类效果不好
+        if best_silhouette < 0.2:
+            print(f"  ⚠ 轮廓系数过低（{best_silhouette:.4f}），聚类效果可能不理想")
         
         # 7. 使用最佳K训练最终模型
         kmeans_final = KMeans(k=best_k, seed=42, featuresCol="features", predictionCol="cluster")
@@ -506,11 +631,11 @@ class AdvancedAnalyzer:
         label_data = [(int(k), v, cluster_descriptions[k]) for k, v in cluster_labels.items()]
         label_df = self.spark.createDataFrame(label_data, label_schema)
         
-        # 转换cluster字段类型后进行join
+        # 转换cluster字段类型后进行join（使用broadcast join，label_df很小）
         user_clustered_typed = user_clustered.withColumn("cluster", col("cluster").cast("int"))
         
         user_cluster_result = user_clustered_typed \
-            .join(label_df, "cluster") \
+            .join(F.broadcast(label_df), "cluster") \
             .select(
                 col("userid"),
                 col("dept"),
@@ -538,9 +663,9 @@ class AdvancedAnalyzer:
             .mode("overwrite") \
             .jdbc(self.mysql_url, "user_clusters", properties=self.mysql_properties)
         
-        # 聚类统计摘要
+        # 聚类统计摘要（使用broadcast join）
         cluster_stats_typed = cluster_stats.withColumn("cluster", col("cluster").cast("int"))
-        cluster_summary = cluster_stats_typed.join(label_df, "cluster") \
+        cluster_summary = cluster_stats_typed.join(F.broadcast(label_df), "cluster") \
             .select(
                 col("cluster").cast("int"),
                 col("cluster_name"),
@@ -564,6 +689,9 @@ class AdvancedAnalyzer:
         for row in cluster_summary.collect():
             print(f"    {row['cluster_name']}（{row['user_count']:,}人）: {row['cluster_characteristics']}")
             print(f"      - 平均借阅: {row['avg_borrow_count']:.1f}本, 活跃天数: {row['avg_active_days']:.1f}天, 阅读广度: {row['avg_reading_breadth']:.1f}类")
+        
+        # 释放缓存
+        user_vectors_scaled.unpersist()
         
         return user_cluster_result
     
@@ -594,6 +722,10 @@ class AdvancedAnalyzer:
             print("  2. user_clusters          - 用户聚类结果")
             print("  3. cluster_summary        - 聚类统计摘要")
             print("█" * 60)
+            
+            # 释放全局缓存
+            if hasattr(self, 'book_info'):
+                self.book_info.unpersist()
             
         except Exception as e:
             print(f"\n❌ 分析失败: {str(e)}")

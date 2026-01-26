@@ -12,7 +12,7 @@
           <el-col :span="8">
             <el-input
               v-model="searchForm.keyword"
-              placeholder="请输入用户ID或图书ID"
+              placeholder="请输入用户ID、图书名称"
               clearable
             />
           </el-col>
@@ -66,11 +66,12 @@
         v-loading="loading"
         stripe
       >
-        <el-table-column prop="lendId" label="借阅ID" min-width="180" show-overflow-tooltip />
-        <el-table-column prop="userid" label="用户ID" min-width="150" show-overflow-tooltip />
-        <el-table-column prop="bookId" label="图书ID" min-width="180" show-overflow-tooltip />
-        <el-table-column prop="lendDate" label="借阅日期" min-width="120" />
-        <el-table-column prop="retDate" label="归还日期" min-width="120" />
+        <el-table-column prop="userid" label="用户ID" width="120" show-overflow-tooltip />
+        <el-table-column prop="title" label="图书名称" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="author" label="作者" width="120" show-overflow-tooltip />
+        <el-table-column prop="subject" label="主题分类" width="120" show-overflow-tooltip />
+        <el-table-column prop="lendDate" label="借阅日期" width="110" />
+        <el-table-column prop="retDate" label="归还日期" width="110" />
         <el-table-column prop="borrowDays" label="借阅天数" width="100" align="center" />
         <el-table-column label="状态" width="100" align="center">
           <template #default="{ row }">

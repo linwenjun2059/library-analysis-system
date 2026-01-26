@@ -95,7 +95,7 @@
                 <el-descriptions-item label="得分归一化">{{ stats.scoreNormalization }}</el-descriptions-item>
                 <el-descriptions-item label="多样性得分">{{ stats.avgDiversity?.toFixed(3) }}</el-descriptions-item>
                 <el-descriptions-item label="多来源推荐数">{{ stats.multiSourceCount?.toLocaleString() }}</el-descriptions-item>
-                <el-descriptions-item label="多来源占比">{{ (stats.multiSourceRate * 100).toFixed(2) }}%</el-descriptions-item>
+                <el-descriptions-item label="多来源占比">{{ stats.multiSourceRate?.toFixed(2) }}%</el-descriptions-item>
               </el-descriptions>
             </el-card>
           </el-col>
@@ -160,14 +160,14 @@ const loadData = async () => {
     
     // 填充数据
     stats.totalUsers = parseInt(statsMap['total_users'] || 0)
-    stats.coverageRate = parseFloat(statsMap['coverage_rate'] || 0)
+    stats.coverageRate = parseFloat((statsMap['coverage_rate'] || '0').replace('%', ''))
     stats.totalRecommendations = parseInt(statsMap['total_recommendations'] || 0)
     stats.recommendedUsers = parseInt(statsMap['recommended_users'] || 0)
     stats.avgDiversity = parseFloat(statsMap['avg_diversity'] || 0)
     stats.multiSourceCount = parseInt(statsMap['multi_source_count'] || 0)
     stats.avgRecommendations = parseFloat(statsMap['avg_recommendations_per_user'] || 0)
     stats.avgScore = parseFloat(statsMap['avg_score'] || 0)
-    stats.multiSourceRate = parseFloat(statsMap['multi_source_rate'] || 0)
+    stats.multiSourceRate = parseFloat((statsMap['multi_source_rate'] || '0').replace('%', ''))
     stats.cfUserCount = parseInt(statsMap['cf_user_count'] || 0)
     stats.contentUserCount = parseInt(statsMap['content_user_count'] || 0)
     stats.popularityUserCount = parseInt(statsMap['popularity_user_count'] || 0)

@@ -76,4 +76,35 @@ public class RecentLendRecords implements Serializable {
      */
     @TableField(exist = false)
     private Date createTime;
+
+    // ========== 关联的图书信息字段 ==========
+    /**
+     * 书名
+     */
+    @TableField(exist = false)
+    private String title;
+
+    /**
+     * 作者
+     */
+    @TableField(exist = false)
+    private String author;
+
+    /**
+     * 出版社
+     */
+    @TableField(exist = false)
+    private String publisher;
+
+    /**
+     * 主题分类
+     */
+    @TableField(exist = false)
+    private String subject;
+
+    /**
+     * 馆藏位置
+     */
+    @TableField(exist = false)
+    private String locationName;
 }

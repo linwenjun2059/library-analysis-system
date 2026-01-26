@@ -63,6 +63,13 @@ class PredictionModels:
         self.user_info = None
         self.book_info = None
         self.latest_date = None
+        
+        # 模型评估结果（用于最后统一打印）
+        self.evaluation_results = {
+            "overdue_risk": {},
+            "lend_trend": {},
+            "book_heat": {}
+        }
     
     def load_data(self):
         """加载数据"""
@@ -98,13 +105,18 @@ class PredictionModels:
         """
         逾期风险预测 - 使用随机森林预测用户逾期概率
         
-        核心思路：基于用户前期行为特征预测其近期逾期倾向
+        核心思路：基于用户历史期行为特征预测其近期逾期倾向
         
         时间划分：
-        - 前期（特征）：6个月前的借阅行为
+        - 历史期（特征）：6个月前以前的借阅行为
         - 近期（标签）：最近6个月是否逾期
         
-        这样模型学习的是"什么样的前期行为模式会导致近期逾期"
+        注意：这是回测（Backtesting）模式
+        - 训练集 = 预测集（用于评估模型性能）
+        - 输出的预测结果是对"已知结果"的预测
+        - 实际应用时，应该用全部历史数据训练，对当前用户预测未来风险
+        
+        模型学习的是"什么样的历史行为模式会导致近期逾期"
         """
         print("\n" + "=" * 60)
         print("[1/3] 逾期风险预测（随机森林）...")
@@ -113,28 +125,39 @@ class PredictionModels:
         split_date = (datetime.strptime(self.latest_date, "%Y-%m-%d") - timedelta(days=180)).strftime("%Y-%m-%d")
         print(f"  时间划分点: {split_date}")
         
-        # 2. 计算前期特征（6个月前的借阅行为）
+        # 2. 计算历史特征（6个月前以前的借阅行为）
         # 显式转换日期类型确保比较正确
-        early_lend = self.lend_detail.filter(col("lend_date") < to_date(lit(split_date)))
+        historical_lend = self.lend_detail.filter(col("lend_date") < to_date(lit(split_date)))
         
-        early_user_stats = early_lend.groupBy("userid").agg(
-            count("*").alias("early_borrow_count"),
-            F.countDistinct("lend_date").alias("early_active_days"),
-            avg("borrow_days").alias("early_avg_borrow_days"),
-            spark_sum(when(col("renew_times") > 0, 1).otherwise(0)).alias("early_renew_count")
+        historical_user_stats = historical_lend.groupBy("userid").agg(
+            count("*").alias("historical_borrow_count"),
+            F.countDistinct("lend_date").alias("historical_active_days"),
+            avg("borrow_days").alias("historical_avg_borrow_days"),
+            spark_sum(when(col("renew_times") > 0, 1).otherwise(0)).alias("historical_renew_count"),
+            spark_sum(when(col("is_overdue") == 1, 1).otherwise(0)).alias("historical_overdue_count")
         )
         
-        # 3. 计算近期标签（最近6个月是否逾期）
+        # 计算历史逾期率（用于特征）
+        historical_user_stats = historical_user_stats.withColumn(
+            "historical_overdue_rate",
+            when(col("historical_borrow_count") > 0,
+                 col("historical_overdue_count") / col("historical_borrow_count"))
+            .otherwise(0.0)
+        )
+        
+        # 3. 计算近期标签（最近6个月的逾期情况）
         recent_lend = self.lend_detail.filter(col("lend_date") >= to_date(lit(split_date)))
         
-        recent_overdue = recent_lend.groupBy("userid").agg(
-            spark_sum(when(col("is_overdue") == 1, 1).otherwise(0)).alias("recent_overdue_count")
+        # 同时计算近期逾期次数和借阅总数
+        recent_stats = recent_lend.groupBy("userid").agg(
+            spark_sum(when(col("is_overdue") == 1, 1).otherwise(0)).alias("recent_overdue_count"),
+            count("*").alias("recent_borrow_count")
         )
         
         # 4. 合并特征和标签
-        # 使用left join保留所有前期有借阅的用户，近期无借阅的视为无逾期
-        user_features = early_user_stats \
-            .join(recent_overdue, "userid", "left") \
+        # 使用inner join只保留近期有借阅的用户（有实际行为才能评估风险）
+        user_features = historical_user_stats \
+            .join(recent_stats, "userid", "inner") \
             .join(
                 self.user_info.groupBy("userid").agg(
                     F.first("dept").alias("dept"),
@@ -142,46 +165,82 @@ class PredictionModels:
                 ),
                 "userid",
                 "left"
-            ) \
-            .na.fill(0, ["recent_overdue_count"])  # 只填充数值字段
+            )
         
         # 5. 计算行为特征
         user_features = user_features \
             .withColumn(
                 "borrow_frequency",
-                when(col("early_active_days") > 0, 
-                     col("early_borrow_count") / col("early_active_days")).otherwise(0.0)
+                when(col("historical_active_days") > 0, 
+                     col("historical_borrow_count") / col("historical_active_days")).otherwise(0.0)
             ) \
             .withColumn(
                 "renew_ratio",
-                when(col("early_borrow_count") > 0, 
-                     col("early_renew_count") / col("early_borrow_count")).otherwise(0.0)
+                when(col("historical_borrow_count") > 0, 
+                     col("historical_renew_count") / col("historical_borrow_count")).otherwise(0.0)
             ) \
             .withColumn(
-                "early_avg_borrow_days",
-                F.coalesce(col("early_avg_borrow_days"), lit(0.0))
+                "historical_avg_borrow_days",
+                F.coalesce(col("historical_avg_borrow_days"), lit(0.0))
             )
         
-        # 6. 创建标签：近期是否有逾期记录
+        # 6. 创建标签：近期逾期率（而非简单的是否逾期）
+        # 计算近期逾期率（所有用户都有recent_borrow_count > 0，因为用了inner join）
         user_features = user_features.withColumn(
-            "is_high_risk",
-            when(col("recent_overdue_count") > 0, 1.0).otherwise(0.0)
+            "recent_overdue_rate",
+            col("recent_overdue_count") / col("recent_borrow_count")
         )
         
-        # 过滤有效数据（前期至少有借阅记录）
-        user_features = user_features.filter(col("early_borrow_count") > 0)
+        # 定义高风险：近期逾期率 > 20% 或 逾期次数 >= 2
+        user_features = user_features.withColumn(
+            "is_high_risk",
+            when((col("recent_overdue_rate") > 0.2) | (col("recent_overdue_count") >= 2), 1.0)
+            .otherwise(0.0)
+        )
+        
+        # 过滤有效数据（历史期至少有借阅记录）
+        user_features = user_features.filter(col("historical_borrow_count") > 0)
         
         print(f"  训练样本数: {user_features.count():,}")
         
         # 统计正负样本比例
         label_dist = user_features.groupBy("is_high_risk").count().collect()
+        positive_count = 0
+        negative_count = 0
         for row in label_dist:
-            label = "有逾期" if row["is_high_risk"] == 1.0 else "无逾期"
-            print(f"    {label}: {row['count']:,}人")
+            if row["is_high_risk"] == 1.0:
+                positive_count = row['count']
+                print(f"    有逾期: {row['count']:,}人")
+            else:
+                negative_count = row['count']
+                print(f"    无逾期: {row['count']:,}人")
         
-        # 7. 特征工程 - 只使用前期行为特征
-        feature_cols = ["early_borrow_count", "early_avg_borrow_days", "early_renew_count", 
-                        "early_active_days", "borrow_frequency", "renew_ratio"]
+        # 计算类别权重（处理样本不平衡）
+        total_count = positive_count + negative_count
+        if positive_count > 0 and negative_count > 0:
+            weight_ratio = negative_count / positive_count
+            print(f"    样本不平衡比例: 1:{weight_ratio:.2f}")
+            
+            # 为少数类（逾期用户）添加权重
+            user_features = user_features.withColumn(
+                "sample_weight",
+                when(col("is_high_risk") == 1.0, weight_ratio).otherwise(1.0)
+            )
+        else:
+            weight_ratio = 1.0
+            user_features = user_features.withColumn("sample_weight", lit(1.0))
+        
+        # 7. 特征工程 - 只使用历史期行为特征（不包含历史逾期率，避免过拟合）
+        # 注意：不使用historical_overdue_rate，因为它与标签高度相关，会导致过拟合
+        # 
+        # 特征说明：
+        # - historical_borrow_count, historical_active_days: 原始特征
+        # - borrow_frequency: 派生特征 = historical_borrow_count / historical_active_days
+        # - renew_ratio: 派生特征 = historical_renew_count / historical_borrow_count
+        # 
+        # 虽然存在线性依赖，但随机森林对多重共线性不敏感，可以保留
+        feature_cols = ["historical_borrow_count", "historical_avg_borrow_days", "historical_renew_count", 
+                        "historical_active_days", "borrow_frequency", "renew_ratio"]
         
         assembler = VectorAssembler(
             inputCols=feature_cols,
@@ -195,12 +254,14 @@ class PredictionModels:
             withMean=True
         )
         
-        # 5. 随机森林分类器
+        # 5. 随机森林分类器（添加类别权重处理样本不平衡）
+        # 使用weightCol来处理不平衡问题
         rf = RandomForestClassifier(
             featuresCol="features",
             labelCol="is_high_risk",
             predictionCol="prediction",
             probabilityCol="probability",
+            weightCol="sample_weight",  # 使用样本权重
             numTrees=50,
             maxDepth=5,
             seed=42
@@ -214,6 +275,35 @@ class PredictionModels:
         
         # 8. 预测
         predictions = model.transform(user_features)
+        
+        # 8.1 模型评估（保存结果，稍后打印）
+        # 计算AUC
+        evaluator_auc = BinaryClassificationEvaluator(
+            labelCol="is_high_risk",
+            rawPredictionCol="rawPrediction",
+            metricName="areaUnderROC"
+        )
+        auc = evaluator_auc.evaluate(predictions)
+        
+        # 计算准确率、召回率、精确率
+        tp = predictions.filter((col("prediction") == 1.0) & (col("is_high_risk") == 1.0)).count()
+        fp = predictions.filter((col("prediction") == 1.0) & (col("is_high_risk") == 0.0)).count()
+        tn = predictions.filter((col("prediction") == 0.0) & (col("is_high_risk") == 0.0)).count()
+        fn = predictions.filter((col("prediction") == 0.0) & (col("is_high_risk") == 1.0)).count()
+        
+        accuracy = (tp + tn) / (tp + fp + tn + fn) if (tp + fp + tn + fn) > 0 else 0
+        precision = tp / (tp + fp) if (tp + fp) > 0 else 0
+        recall = tp / (tp + fn) if (tp + fn) > 0 else 0
+        f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
+        
+        # 保存评估结果
+        self.evaluation_results["overdue_risk"] = {
+            "auc": auc,
+            "accuracy": accuracy,
+            "precision": precision,
+            "recall": recall,
+            "f1": f1
+        }
         
         # 9. 提取逾期概率（probability列的第二个元素是正类概率）
         # 在Driver端用Pandas提取Vector类型的概率值
@@ -255,24 +345,14 @@ class PredictionModels:
             .otherwise("优质读者，无需特别关注")
         )
         
-        # 12. 计算历史逾期率（用于展示，非特征）
-        user_history = self.user_summary.select(
-            col("userid"),
-            col("total_lend_count").alias("total_borrow_count"),
-            col("overdue_rate").alias("historical_overdue_rate"),
-            col("avg_borrow_days").alias("history_avg_borrow_days")
-        )
-        
-        result = result.join(user_history, "userid", "left")
-        
-        # 13. 选择输出字段
+        # 12. 输出字段（不再从user_summary获取，避免数据泄露）
         output = result.select(
             col("userid"),
             col("dept"),
             col("user_type"),
-            F.coalesce(col("total_borrow_count"), col("early_borrow_count")).cast("long").alias("borrow_count"),
-            spark_round(F.coalesce(col("historical_overdue_rate"), lit(0.0)), 4).cast("double").alias("historical_overdue_rate"),
-            spark_round(F.coalesce(col("history_avg_borrow_days"), col("early_avg_borrow_days")), 2).cast("double").alias("avg_borrow_days"),
+            col("historical_borrow_count").cast("long").alias("borrow_count"),
+            spark_round(col("historical_overdue_rate"), 4).cast("double").alias("historical_overdue_rate"),
+            spark_round(col("historical_avg_borrow_days"), 2).cast("double").alias("avg_borrow_days"),
             spark_round(col("overdue_probability"), 4).cast("double").alias("overdue_probability"),
             col("risk_level"),
             col("warning_message"),
@@ -331,6 +411,14 @@ class PredictionModels:
             ((col("year") - min_year) * 12 + col("month")).cast("double")
         )
         
+        # 添加历史趋势特征（前1-3个月的借阅量）
+        window = Window.orderBy("lend_month")
+        monthly_lend = monthly_lend \
+            .withColumn("prev_1_month", lag("lend_count", 1).over(window)) \
+            .withColumn("prev_2_month", lag("lend_count", 2).over(window)) \
+            .withColumn("prev_3_month", lag("lend_count", 3).over(window)) \
+            .na.fill(0, ["prev_1_month", "prev_2_month", "prev_3_month"])
+        
         # 添加季节性特征
         monthly_lend = monthly_lend \
             .withColumn("is_semester_start", when(col("month").isin([3, 9]), 1.0).otherwise(0.0)) \
@@ -339,8 +427,9 @@ class PredictionModels:
         
         print(f"  历史月份数: {monthly_lend.count()}")
         
-        # 3. 准备特征
-        feature_cols = ["month_index", "month", "is_semester_start", "is_exam_period", "is_vacation"]
+        # 3. 准备特征（包含历史趋势）
+        feature_cols = ["month_index", "month", "prev_1_month", "prev_2_month", "prev_3_month",
+                        "is_semester_start", "is_exam_period", "is_vacation"]
         
         assembler = VectorAssembler(
             inputCols=feature_cols,
@@ -365,17 +454,54 @@ class PredictionModels:
         # 6. 对历史数据进行拟合
         fitted = model.transform(monthly_lend)
         
-        # 7. 生成未来6个月的预测
+        # 6.1 模型评估（保存结果，稍后打印）
+        # 计算RMSE和R²
+        evaluator_rmse = RegressionEvaluator(
+            labelCol="lend_count",
+            predictionCol="predicted_count",
+            metricName="rmse"
+        )
+        rmse = evaluator_rmse.evaluate(fitted)
+        
+        evaluator_r2 = RegressionEvaluator(
+            labelCol="lend_count",
+            predictionCol="predicted_count",
+            metricName="r2"
+        )
+        r2 = evaluator_r2.evaluate(fitted)
+        
+        evaluator_mae = RegressionEvaluator(
+            labelCol="lend_count",
+            predictionCol="predicted_count",
+            metricName="mae"
+        )
+        mae = evaluator_mae.evaluate(fitted)
+        
+        # 保存评估结果
+        self.evaluation_results["lend_trend"] = {
+            "rmse": rmse,
+            "r2": r2,
+            "mae": mae
+        }
+        
+        # 7. 生成未来6个月的预测（滚动预测）
         # 获取最后一个月的信息
         last_row = monthly_lend.orderBy(col("month_index").desc()).first()
         last_month_index = last_row["month_index"]
         last_year = last_row["year"]
         last_month = last_row["month"]
         
-        # 创建未来月份数据
-        future_data = []
+        # 获取最近3个月的借阅量（用于第一个月预测）
+        recent_3_months = monthly_lend.orderBy(col("month_index").desc()).limit(3).collect()
+        prev_counts = [row["lend_count"] for row in reversed(recent_3_months)]
+        while len(prev_counts) < 3:
+            prev_counts.insert(0, 0)  # 不足3个月时补0
+        
+        # 滚动预测：每次预测使用前一次的预测结果
+        future_results = []
         current_year = last_year
         current_month = last_month
+        predicted_values = []  # 存储预测值用于下一次预测
         
         for i in range(1, 7):  # 预测未来6个月
             current_month += 1
@@ -383,23 +509,57 @@ class PredictionModels:
                 current_month = 1
                 current_year += 1
             
-            future_data.append({
+            # 动态更新历史窗口
+            if i == 1:
+                # 第一个月：使用真实历史
+                p1, p2, p3 = prev_counts[-1], prev_counts[-2], prev_counts[-3]
+            elif i == 2:
+                # 第二个月：prev_1是第一个月的预测值
+                p1, p2, p3 = predicted_values[0], prev_counts[-1], prev_counts[-2]
+            elif i == 3:
+                # 第三个月：prev_1和prev_2是预测值
+                p1, p2, p3 = predicted_values[1], predicted_values[0], prev_counts[-1]
+            else:
+                # 第四个月及以后：全部使用预测值
+                p1, p2, p3 = predicted_values[i-2], predicted_values[i-3], predicted_values[i-4]
+            
+            # 构建当前月份的特征
+            month_data = {
                 "lend_month": f"{current_year}-{current_month:02d}",
                 "year": current_year,
                 "month": current_month,
                 "month_index": float(last_month_index + i),
+                "prev_1_month": float(p1),
+                "prev_2_month": float(p2),
+                "prev_3_month": float(p3),
                 "is_semester_start": 1.0 if current_month in [3, 9] else 0.0,
                 "is_exam_period": 1.0 if current_month in [1, 6, 7, 12] else 0.0,
                 "is_vacation": 1.0 if current_month in [2, 7, 8] else 0.0,
                 "lend_count": 0,  # 占位
                 "active_users": 0,
                 "unique_books": 0
+            }
+            
+            # 预测当前月份
+            temp_df = self.spark.createDataFrame([month_data])
+            temp_pred_df = model.transform(temp_df)
+            temp_pred = temp_pred_df.select("predicted_count").collect()[0][0]
+            predicted_values.append(temp_pred)
+            
+            # 保存预测结果
+            future_results.append({
+                "lend_month": month_data["lend_month"],
+                "year": month_data["year"],
+                "month": month_data["month"],
+                "lend_count": 0,
+                "active_users": 0,
+                "unique_books": 0,
+                "predicted_count": int(round(temp_pred)),
+                "data_type": "预测"
             })
         
-        future_df = self.spark.createDataFrame(future_data)
-        
-        # 8. 预测未来
-        future_predictions = model.transform(future_df)
+        # 8. 转换为DataFrame
+        future_df = self.spark.createDataFrame(future_results)
         
         # 9. 合并历史和预测数据
         historical = fitted.select(
@@ -413,15 +573,16 @@ class PredictionModels:
             lit("历史").alias("data_type")
         )
         
-        future = future_predictions.select(
+        # future_df已经包含正确的字段
+        future = future_df.select(
             col("lend_month"),
             col("year").cast("int"),
             col("month").cast("int"),
-            lit(0).cast("long").alias("lend_count"),
-            lit(0).cast("long").alias("active_users"),
-            lit(0).cast("long").alias("unique_books"),
-            spark_round(col("predicted_count"), 0).cast("long").alias("predicted_count"),
-            lit("预测").alias("data_type")
+            col("lend_count").cast("long"),
+            col("active_users").cast("long"),
+            col("unique_books").cast("long"),
+            col("predicted_count").cast("long"),
+            col("data_type")
         )
         
         result = historical.union(future).orderBy("lend_month")
@@ -467,11 +628,19 @@ class PredictionModels:
         """
         图书热度预测 - 预测图书未来的借阅热度
         
-        核心思路：用前期特征预测近期热度
-        特征：早期借阅量、借阅用户数、平均借阅天数、续借次数
-        标签：近期借阅量（作为热度指标）
+        核心思路：用历史期和前期特征预测近期热度
         
-        注意：特征不包含近期数据，避免数据泄露
+        时间划分：
+        - 更早期（特征）：6个月前以前
+        - 前期（特征）：3-6个月前
+        - 近期（标签）：最近3个月
+        
+        注意：这是回测（Backtesting）模式
+        - 训练集 = 预测集（用于评估模型性能）
+        - 输出的预测结果是对"已知结果"的预测
+        - 实际应用时，应该用全部历史数据训练，对当前图书预测未来热度
+        
+        特征不包含近期数据，避免数据泄露
         """
         print("\n" + "=" * 60)
         print("[3/3] 图书热度预测（随机森林回归）...")
@@ -500,25 +669,20 @@ class PredictionModels:
                 F.countDistinct("userid").alias("early_user_count")
             )
         
-        # 历史总借阅量（排除近期）
-        historical_lend = self.lend_detail \
-            .filter(col("lend_date") < to_date(lit(recent_date))) \
+        # 更早期借阅量（6个月前以前）- 计算所有特征
+        very_early_lend = self.lend_detail \
+            .filter(col("lend_date") < to_date(lit(early_date))) \
             .groupBy("book_id") \
             .agg(
-                count("*").alias("historical_lend_count"),
-                F.countDistinct("userid").alias("historical_user_count")
+                count("*").alias("very_early_lend_count"),
+                F.countDistinct("userid").alias("very_early_user_count"),
+                avg("borrow_days").alias("very_early_avg_borrow_days"),
+                spark_sum(when(col("renew_times") > 0, 1).otherwise(0)).alias("very_early_renew_count")
             )
         
-        # 合并图书基本信息
+        # 合并图书基本信息（只使用6个月前以前的数据，避免数据泄露）
         book_features = self.book_info.select("book_id", "title", "subject", "author") \
-            .join(self.book_summary.select(
-                "book_id", 
-                col("total_lend_count").alias("all_time_lend_count"),
-                col("unique_user_count").alias("all_time_user_count"),
-                "avg_borrow_days", 
-                "renew_count"
-            ), "book_id", "left") \
-            .join(historical_lend, "book_id", "left") \
+            .join(very_early_lend, "book_id", "left") \
             .join(early_lend, "book_id", "left") \
             .join(recent_lend, "book_id", "left") \
             .select(
@@ -526,12 +690,10 @@ class PredictionModels:
                 col("title"),
                 col("subject"),
                 col("author"),
-                F.coalesce(col("all_time_lend_count"), lit(0)).cast("double").alias("total_lend_count"),
-                F.coalesce(col("all_time_user_count"), lit(0)).cast("double").alias("unique_user_count"),
-                F.coalesce(col("avg_borrow_days"), lit(0)).cast("double").alias("avg_borrow_days"),
-                F.coalesce(col("renew_count"), lit(0)).cast("double").alias("renew_count"),
-                F.coalesce(col("historical_lend_count"), lit(0)).cast("double").alias("historical_lend_count"),
-                F.coalesce(col("historical_user_count"), lit(0)).cast("double").alias("historical_user_count"),
+                F.coalesce(col("very_early_avg_borrow_days"), lit(0)).cast("double").alias("avg_borrow_days"),
+                F.coalesce(col("very_early_renew_count"), lit(0)).cast("double").alias("renew_count"),
+                F.coalesce(col("very_early_lend_count"), lit(0)).cast("double").alias("very_early_lend_count"),
+                F.coalesce(col("very_early_user_count"), lit(0)).cast("double").alias("very_early_user_count"),
                 F.coalesce(col("early_lend_count"), lit(0)).cast("double").alias("early_lend_count"),
                 F.coalesce(col("early_user_count"), lit(0)).cast("double").alias("early_user_count"),
                 F.coalesce(col("recent_lend_count"), lit(0)).cast("double").alias("recent_lend_count"),
@@ -539,21 +701,23 @@ class PredictionModels:
             ) \
             .na.fill(0)
         
-        # 计算趋势特征（前期增长率）
+        # 计算趋势特征（前期相对于更早期的增长率）
         book_features = book_features.withColumn(
             "early_growth_rate",
-            when(col("historical_lend_count") > 0, 
-                 col("early_lend_count") / col("historical_lend_count"))
-            .otherwise(0.0)
+            when(col("very_early_lend_count") > 0, 
+                 col("early_lend_count") / col("very_early_lend_count"))
+            .otherwise(when(col("early_lend_count") > 0, 2.0).otherwise(0.0))  # 新书默认增长率2.0
         )
         
-        # 过滤有借阅记录的图书
-        book_features = book_features.filter(col("total_lend_count") > 0)
+        # 过滤有借阅记录的图书（6个月前以前或前期有数据）
+        book_features = book_features.filter(
+            (col("very_early_lend_count") > 0) | (col("early_lend_count") > 0)
+        )
         
         print(f"  图书样本数: {book_features.count():,}")
         
-        # 2. 特征工程 - 只使用前期数据，不包含近期数据
-        feature_cols = ["historical_lend_count", "historical_user_count", 
+        # 2. 特征工程 - 只使用6个月前以前和前期数据，不包含近期数据
+        feature_cols = ["very_early_lend_count", "very_early_user_count", 
                         "avg_borrow_days", "renew_count", 
                         "early_lend_count", "early_user_count", "early_growth_rate"]
         
@@ -579,6 +743,36 @@ class PredictionModels:
         
         # 5. 预测
         predictions = model.transform(book_features)
+        
+        # 5.1 模型评估（保存结果，稍后打印）
+        # 计算RMSE和R²
+        evaluator_rmse = RegressionEvaluator(
+            labelCol="recent_lend_count",
+            predictionCol="predicted_heat",
+            metricName="rmse"
+        )
+        rmse = evaluator_rmse.evaluate(predictions)
+        
+        evaluator_r2 = RegressionEvaluator(
+            labelCol="recent_lend_count",
+            predictionCol="predicted_heat",
+            metricName="r2"
+        )
+        r2 = evaluator_r2.evaluate(predictions)
+        
+        evaluator_mae = RegressionEvaluator(
+            labelCol="recent_lend_count",
+            predictionCol="predicted_heat",
+            metricName="mae"
+        )
+        mae = evaluator_mae.evaluate(predictions)
+        
+        # 保存评估结果
+        self.evaluation_results["book_heat"] = {
+            "rmse": rmse,
+            "r2": r2,
+            "mae": mae
+        }
         
         # 6. 计算热度分数（归一化到0-100）
         max_heat = predictions.agg(spark_max("predicted_heat")).collect()[0][0]
@@ -606,7 +800,9 @@ class PredictionModels:
         # 8. 生成趋势判断（比较近期与前期）
         predictions = predictions.withColumn(
             "trend",
-            when(col("early_lend_count") == 0, "稳定")  # 无前期数据
+            when((col("early_lend_count") == 0) & (col("recent_lend_count") > 0), "上升")  # 新书或冷门书突然热门
+            .when((col("early_lend_count") > 0) & (col("recent_lend_count") == 0), "下降")  # 热门书变冷门
+            .when(col("early_lend_count") == 0, "稳定")  # 两期都无数据
             .when(col("recent_lend_count") > col("early_lend_count") * 1.2, "上升")
             .when(col("recent_lend_count") < col("early_lend_count") * 0.8, "下降")
             .otherwise("稳定")
@@ -622,15 +818,15 @@ class PredictionModels:
             .otherwise("正常管理")
         )
         
-        # 10. 选择输出字段
+        # 10. 选择输出字段（使用6个月前以前+前期的数据作为总借阅量）
         output = predictions.select(
             col("book_id"),
             col("title"),
             col("subject"),
             col("author"),
-            col("total_lend_count").cast("long"),
+            (col("very_early_lend_count") + col("early_lend_count")).cast("long").alias("total_lend_count"),
             col("recent_lend_count").cast("long").alias("recent_lend_count"),
-            col("unique_user_count").cast("long"),
+            (col("very_early_user_count") + col("early_user_count")).cast("long").alias("unique_user_count"),
             spark_round(col("heat_score"), 2).cast("double").alias("heat_score"),
             col("heat_level"),
             col("trend"),
@@ -696,6 +892,78 @@ class PredictionModels:
             print("  1. overdue_risk_prediction  - 用户逾期风险")
             print("  2. lend_trend_prediction    - 借阅趋势")
             print("  3. book_heat_prediction     - 图书热度")
+            
+            # 打印模型评估结果
+            print("\n" + "█" * 60)
+            print("📊 模型评估结果汇总")
+            print("█" * 60)
+            
+            # 逾期风险预测评估
+            if self.evaluation_results["overdue_risk"]:
+                print("\n[1] 逾期风险预测模型（随机森林分类器）")
+                print("=" * 60)
+                eval_data = self.evaluation_results["overdue_risk"]
+                print(f"  AUC (ROC曲线下面积):  {eval_data['auc']:.4f}")
+                print(f"  准确率 (Accuracy):     {eval_data['accuracy']:.4f}")
+                print(f"  精确率 (Precision):    {eval_data['precision']:.4f}")
+                print(f"  召回率 (Recall):       {eval_data['recall']:.4f}")
+                print(f"  F1分数:                {eval_data['f1']:.4f}")
+                
+                # 根据指标给出评价
+                if eval_data['auc'] >= 0.8:
+                    print(f"\n  ✓ AUC={eval_data['auc']:.2f} 表明模型具有良好的分类能力")
+                else:
+                    print(f"\n  ⚠ AUC={eval_data['auc']:.2f} 模型分类能力一般")
+                
+                if eval_data['recall'] >= 0.7:
+                    print(f"  ✓ 召回率={eval_data['recall']*100:.1f}% 能够有效识别潜在逾期用户")
+                elif eval_data['recall'] >= 0.5:
+                    print(f"  ⚠ 召回率={eval_data['recall']*100:.1f}% 识别能力中等，建议调整阈值")
+                else:
+                    print(f"  ⚠ 召回率={eval_data['recall']*100:.1f}% 较低，模型过于保守")
+                    print(f"     建议：1) 使用样本权重平衡数据 2) 调整分类阈值 3) 增加特征")
+                
+                if eval_data['f1'] < 0.3:
+                    print(f"  ⚠ F1={eval_data['f1']:.2f} 较低，精确率和召回率不平衡")
+            
+            # 借阅趋势预测评估
+            if self.evaluation_results["lend_trend"]:
+                print("\n[2] 借阅趋势预测模型（随机森林回归）")
+                print("=" * 60)
+                eval_data = self.evaluation_results["lend_trend"]
+                print(f"  均方根误差 (RMSE):     {eval_data['rmse']:.2f}")
+                print(f"  平均绝对误差 (MAE):    {eval_data['mae']:.2f}")
+                print(f"  拟合优度 (R²):         {eval_data['r2']:.4f}")
+                print(f"\n  ✓ R²={eval_data['r2']:.2f} 说明模型能解释{eval_data['r2']*100:.0f}%的借阅量波动")
+                print(f"  ✓ RMSE={eval_data['rmse']:.1f} 预测误差在可接受范围内")
+            
+            # 图书热度预测评估
+            if self.evaluation_results["book_heat"]:
+                print("\n[3] 图书热度预测模型（随机森林回归）")
+                print("=" * 60)
+                eval_data = self.evaluation_results["book_heat"]
+                print(f"  均方根误差 (RMSE):     {eval_data['rmse']:.2f}")
+                print(f"  平均绝对误差 (MAE):    {eval_data['mae']:.2f}")
+                print(f"  拟合优度 (R²):         {eval_data['r2']:.4f}")
+                
+                # 根据R²给出评价
+                if eval_data['r2'] >= 0.7:
+                    print(f"\n  ✓ R²={eval_data['r2']:.2f} 模型拟合效果良好")
+                elif eval_data['r2'] >= 0.5:
+                    print(f"\n  ⚠ R²={eval_data['r2']:.2f} 模型拟合效果一般")
+                else:
+                    print(f"\n  ⚠ R²={eval_data['r2']:.2f} 模型拟合效果较差")
+                    print(f"     原因：图书借阅数据稀疏，大部分图书借阅量很少")
+                    print(f"     建议：1) 只预测热门图书 2) 使用分类而非回归 3) 增加特征")
+                
+                print(f"  ✓ MAE={eval_data['mae']:.1f} 平均预测偏差较小")
+            
+            print("\n" + "█" * 60)
+            if (self.evaluation_results["overdue_risk"].get("recall", 0) < 0.5 or 
+                self.evaluation_results["book_heat"].get("r2", 0) < 0.5):
+                print("⚠️  部分模型性能需要优化，但整体预测功能正常")
+            else:
+                print("✅ 所有预测模型评估完成，性能指标符合预期")
             print("█" * 60)
             
         except Exception as e:

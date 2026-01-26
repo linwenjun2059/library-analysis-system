@@ -27,8 +27,9 @@
         stripe
         style="width: 100%"
       >
-        <el-table-column prop="lendId" label="借阅ID" min-width="150" show-overflow-tooltip />
-        <el-table-column prop="bookId" label="图书ID" min-width="150" show-overflow-tooltip />
+        <el-table-column prop="title" label="图书名称" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="author" label="作者" width="120" show-overflow-tooltip />
+        <el-table-column prop="subject" label="主题分类" width="120" show-overflow-tooltip />
         <el-table-column label="借阅日期" width="110">
           <template #default="{ row }">
             <span>{{ formatDate(row.lendDate) }}</span>

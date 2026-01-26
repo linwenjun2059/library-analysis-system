@@ -127,7 +127,7 @@ public class AdvancedAnalysisController {
         // 跨主题关联数
         stats.put("crossSubjectRules", totalRules - sameSubjectCount);
 
-        // 平均置信度
+        // 平均置信度和提升度
         List<BookAssociationRule> allRules = bookAssociationRuleMapper.selectList(null);
         if (!allRules.isEmpty()) {
             double avgConfidence = allRules.stream()
@@ -141,6 +141,34 @@ public class AdvancedAnalysisController {
                     .average()
                     .orElse(0.0);
             stats.put("avgLift", Math.round(avgLift * 100) / 100.0);
+            
+            // 置信度分布统计
+            Map<String, Long> confidenceDistribution = new HashMap<>();
+            confidenceDistribution.put("0-20", 0L);
+            confidenceDistribution.put("20-40", 0L);
+            confidenceDistribution.put("40-60", 0L);
+            confidenceDistribution.put("60-80", 0L);
+            confidenceDistribution.put("80-100", 0L);
+            
+            for (BookAssociationRule rule : allRules) {
+                double conf = rule.getConfidence() * 100;
+                if (conf < 20) {
+                    confidenceDistribution.put("0-20", confidenceDistribution.get("0-20") + 1);
+                } else if (conf < 40) {
+                    confidenceDistribution.put("20-40", confidenceDistribution.get("20-40") + 1);
+                } else if (conf < 60) {
+                    confidenceDistribution.put("40-60", confidenceDistribution.get("40-60") + 1);
+                } else if (conf < 80) {
+                    confidenceDistribution.put("60-80", confidenceDistribution.get("60-80") + 1);
+                } else {
+                    confidenceDistribution.put("80-100", confidenceDistribution.get("80-100") + 1);
+                }
+            }
+            stats.put("confidenceDistribution", confidenceDistribution);
+        } else {
+            stats.put("avgConfidence", 0.0);
+            stats.put("avgLift", 0.0);
+            stats.put("confidenceDistribution", new HashMap<>());
         }
 
         return Result.success(stats);

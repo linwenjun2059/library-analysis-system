@@ -76,52 +76,15 @@ public class UserServiceImpl implements UserService {
     @Override
     public Page<RecentLendRecords> getUserLendRecords(String userid, Integer current, Integer size) {
         Page<RecentLendRecords> page = new Page<>(current, size);
-        LambdaQueryWrapper<RecentLendRecords> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(RecentLendRecords::getUserid, userid)
-                .orderByDesc(RecentLendRecords::getLendDate);
-        return recentLendRecordsMapper.selectPage(page, wrapper);
+        // 使用关联查询，获取图书信息
+        return recentLendRecordsMapper.selectUserRecordsWithBookInfo(page, userid);
     }
 
     @Override
     public Page<RecentLendRecords> getAllLendRecords(String keyword, String startDate, String endDate, String returnStatus, String overdueStatus, Integer current, Integer size) {
         Page<RecentLendRecords> page = new Page<>(current, size);
-        LambdaQueryWrapper<RecentLendRecords> wrapper = new LambdaQueryWrapper<>();
-        
-        // 关键词搜索(用户ID或图书ID)
-        if (keyword != null && !keyword.trim().isEmpty()) {
-            wrapper.and(w -> w.like(RecentLendRecords::getUserid, keyword)
-                    .or()
-                    .like(RecentLendRecords::getBookId, keyword));
-        }
-        
-        // 日期范围筛选
-        if (startDate != null && !startDate.isEmpty()) {
-            wrapper.ge(RecentLendRecords::getLendDate, DateUtil.parseDate(startDate));
-        }
-        if (endDate != null && !endDate.isEmpty()) {
-            wrapper.le(RecentLendRecords::getLendDate, DateUtil.parseDate(endDate));
-        }
-        
-        // 归还状态筛选
-        if (returnStatus != null && !returnStatus.isEmpty()) {
-            if ("returned".equals(returnStatus)) {
-                wrapper.isNotNull(RecentLendRecords::getRetDate);
-            } else if ("not_returned".equals(returnStatus)) {
-                wrapper.isNull(RecentLendRecords::getRetDate);
-            }
-        }
-        
-        // 逾期状态筛选
-        if (overdueStatus != null && !overdueStatus.isEmpty()) {
-            if ("overdue".equals(overdueStatus)) {
-                wrapper.eq(RecentLendRecords::getIsOverdue, 1);
-            } else if ("normal".equals(overdueStatus)) {
-                wrapper.eq(RecentLendRecords::getIsOverdue, 0);
-            }
-        }
-        
-        wrapper.orderByDesc(RecentLendRecords::getLendDate);
-        return recentLendRecordsMapper.selectPage(page, wrapper);
+        // 使用关联查询，获取图书信息，并支持按书名搜索
+        return recentLendRecordsMapper.selectAllRecordsWithBookInfo(page, keyword, startDate, endDate, returnStatus, overdueStatus);
     }
 
     @Override
