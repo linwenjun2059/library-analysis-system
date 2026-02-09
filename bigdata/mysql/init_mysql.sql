@@ -29,7 +29,7 @@ USE library_analysis;
 -- =============================================
 
 -- 1. 用户维度表
--- 注意：此表由Spark任务写入，不包含create_time字段
+
 DROP TABLE IF EXISTS user_dimension;
 
 CREATE TABLE user_dimension (
@@ -42,7 +42,7 @@ CREATE TABLE user_dimension (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户维度表';
 
 -- 2. 图书维度表
--- 注意：此表由Spark任务写入，不包含create_time字段
+
 DROP TABLE IF EXISTS book_dimension;
 
 CREATE TABLE book_dimension (
@@ -64,7 +64,7 @@ CREATE TABLE book_dimension (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='图书维度表';
 
 -- 3. 近期借阅记录（最近6个月）
--- 注意：此表由Spark任务写入，不包含create_time字段
+
 DROP TABLE IF EXISTS recent_lend_records;
 
 CREATE TABLE recent_lend_records (
@@ -90,7 +90,7 @@ CREATE TABLE recent_lend_records (
 -- =============================================
 
 -- 4. 用户借阅汇总表
--- 注意：此表由Spark任务写入，不包含create_time字段
+
 DROP TABLE IF EXISTS user_lend_summary;
 
 CREATE TABLE user_lend_summary (
@@ -112,7 +112,7 @@ CREATE TABLE user_lend_summary (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户借阅汇总表';
 
 -- 5. 图书借阅汇总表
--- 注意：此表由Spark任务写入，不包含create_time字段
+
 DROP TABLE IF EXISTS book_lend_summary;
 
 CREATE TABLE book_lend_summary (
@@ -133,7 +133,7 @@ CREATE TABLE book_lend_summary (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='图书借阅汇总表';
 
 -- 6. 院系借阅汇总表
--- 注意：此表由Spark任务写入，不包含create_time字段
+
 DROP TABLE IF EXISTS dept_lend_summary;
 
 CREATE TABLE dept_lend_summary (
@@ -154,7 +154,7 @@ CREATE TABLE dept_lend_summary (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='院系借阅汇总表';
 
 -- 7. 主题分类汇总表
--- 注意：此表由Spark任务写入，不包含create_time字段
+
 DROP TABLE IF EXISTS subject_lend_summary;
 
 CREATE TABLE subject_lend_summary (
@@ -170,7 +170,7 @@ CREATE TABLE subject_lend_summary (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='主题分类汇总表';
 
 -- 8. 每日统计表
--- 注意：此表由Spark任务写入，不包含create_time字段
+
 DROP TABLE IF EXISTS daily_stats;
 
 CREATE TABLE daily_stats (
@@ -269,8 +269,6 @@ CREATE TABLE `operation_dashboard` (
 -- =============================================
 
 -- 14. 图书推荐表（离线分析版）
--- 注意：此表由Spark任务通过mode("overwrite")写入，不包含id和update_time字段
--- 性能优化：减少索引数量，只保留最常用的查询索引
 DROP TABLE IF EXISTS `book_recommendations`;
 CREATE TABLE `book_recommendations` (
   `userid` VARCHAR(64) NOT NULL COMMENT '用户ID',
@@ -358,7 +356,6 @@ CREATE TABLE `overdue_analysis` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='逾期分析表';
 
 -- 19. 馆藏利用分析表（高级管理员）
--- 说明：删除流通率字段（数据源限制导致无分析价值），保留周转率等有价值的指标
 DROP TABLE IF EXISTS `collection_utilization_analysis`;
 CREATE TABLE `collection_utilization_analysis` (
   `dimension_type` VARCHAR(50) NOT NULL COMMENT '维度类型（位置/主题）',
