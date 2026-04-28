@@ -529,11 +529,14 @@ bash verify.sh
 - **逾期风险预测**：基于用户历史行为预测逾期风险
 - **借阅趋势预测**：预测未来借阅量趋势
 - **图书热度预测**：预测图书未来热度变化
+![随机森林逾期风险预测模型结构示意图](images/随机森林逾期风险预测模型结构示意图.png)
 
 ### 6. 高级数据挖掘
 
 - **FPGrowth关联规则挖掘**：通过 `06_advanced_analysis.py` 执行，挖掘图书之间的关联关系
+![FPGrowth算法FP-Tree构建示例图](images/FPGrowth算法FP-Tree构建示例图.png)
 - **K-means用户聚类**：通过 `06_advanced_analysis.py` 执行，将用户分为不同阅读偏好群体
+![用户画像雷达图示例图](images/用户画像雷达图示例图.png)
 
 ## 🔧 配置说明
 
@@ -729,61 +732,47 @@ hive -f bigdata/hive/01_create_ods.sql
 - 确认CORS配置正确
 - 检查API地址配置
 
-## � 系统展示
+## 📸 系统展示
 
-> 将截图放入 `docs/images/` 目录，图片命名规范如下
-
-### 图片命名规范
-
-| 序号 | 文件名 | 说明 |
-|-----|--------|------|
-| 1 | `01_login.png` | 登录页面 |
-| 2 | `02_admin_dashboard.png` | 高级管理员 - 运营综合看板 |
-| 3 | `03_admin_user_profile.png` | 高级管理员 - 用户画像分析 |
-| 4 | `04_admin_prediction.png` | 高级管理员 - 预测分析 |
-| 5 | `05_admin_book_association.png` | 高级管理员 - 图书关联分析 |
-| 6 | `06_admin_user_clustering.png` | 高级管理员 - 用户聚类分析 |
-| 7 | `07_librarian_dashboard.png` | 图书管理员 - 工作台 |
-| 8 | `08_librarian_book_ranking.png` | 图书管理员 - 图书排行与分析 |
-| 9 | `09_librarian_active_users.png` | 图书管理员 - 活跃用户分析 |
-| 10 | `10_librarian_overdue.png` | 图书管理员 - 逾期情况分析 |
-| 11 | `11_librarian_time_distribution.png` | 图书管理员 - 时间分布分析 |
-| 12 | `12_user_dashboard.png` | 普通用户 - 个人中心 |
-| 13 | `13_user_recommendations.png` | 普通用户 - 图书推荐 |
-| 14 | `14_user_reading_profile.png` | 普通用户 - 我的阅读画像 |
-| 15 | `15_user_ranking.png` | 普通用户 - 我的排名 |
 
 ### 登录页面
 
-![登录页面](docs/images/01_login.png)
+![登录页面](images/01_登录页面.png)
 
 ### 高级管理员页面
 
-| 运营综合看板 | 用户画像分析 |
+| 运营综合看板 | 馆藏利用分析 |
 |-------------|-------------|
-| ![运营看板](docs/images/02_admin_dashboard.png) | ![用户画像](docs/images/03_admin_user_profile.png) |
+| ![运营看板](images/02_高级管理员-工作台.png) | ![馆藏利用分析](images/03_高级管理员-馆藏利用分析.png) |
 
-| 预测分析 | 图书关联分析 |
+| 用户聚类分析 | 预测分析 |
 |---------|-------------|
-| ![预测分析](docs/images/04_admin_prediction.png) | ![图书关联](docs/images/05_admin_book_association.png) |
+| ![用户聚类分析](images/04_高级管理员-用户聚类分析.png) | ![预测分析](images/05_高级管理员-预测分析.png) |
 
-| 用户聚类分析 |
-|-------------|
-| ![用户聚类](docs/images/06_admin_user_clustering.png) |
+| 图书关联分析 | 推荐监控 |
+|---------|-------------|
+| ![图书关联分析](images/06_高级管理员-图书关联分析.png) | ![推荐监控](images/07_高级管理员-推荐监控.png) |
 
 ### 图书管理员页面
 
 | 工作台 | 图书排行与分析 |
 |-------|---------------|
-| ![工作台](docs/images/07_librarian_dashboard.png) | ![图书排行](docs/images/08_librarian_book_ranking.png) |
+| ![工作台](images/08_图书管理员-工作台.png) | ![图书排行](images/08_librarian_book_ranking.png) |
 
-| 活跃用户分析 | 逾期情况分析 |
+| 时间分布分析 | 逾期情况分析 |
 |-------------|-------------|
-| ![活跃用户](docs/images/09_librarian_active_users.png) | ![逾期分析](docs/images/10_librarian_overdue.png) |
+| ![时间分布分析](images/09_图书管理员-时间分布分析.png) | ![逾期分析](images/10_图书管理员-逾期情况分析.png) |
 
-| 时间分布分析 |
+
+### 普通用户页面
+
+| 个人中心 | 图书推荐 |
+|-------|---------------|
+| ![个人中心](images/11_普通用户-个人中心.png) | ![图书推荐](images/12_普通用户-图书推荐.png) |
+
+| 阅读画像 |
 |-------------|
-| ![时间分布](docs/images/11_librarian_time_distr
+| ![阅读画像](images/13_普通用户-阅读画像.png) |
 
 ## 🤝 贡献
 
