@@ -456,19 +456,19 @@ def figure_5_4_user_radar():
     angles = [n / float(N) * 2 * np.pi for n in range(N)]
     angles += angles[:1]
     
-    # 专业深耕型用户数据
+    # 专业深耕型用户数据（原始值，不修改）
     values_expert = [85, 15, 35, 75, 80]  # 高借阅量、低逾期、窄阅读广度
-    values_expert += values_expert[:1]
+    values_expert_closed = values_expert + values_expert[:1]
     
     # 全局平均值
     values_avg = [50, 50, 50, 50, 50]
-    values_avg += values_avg[:1]
+    values_avg_closed = values_avg + values_avg[:1]
     
     # 图1：专业深耕型用户
-    ax1.plot(angles, values_expert, 'o-', linewidth=2, label='专业深耕型用户', color='red')
-    ax1.fill(angles, values_expert, alpha=0.25, color='red')
-    ax1.plot(angles, values_avg, 'o--', linewidth=1.5, label='全局平均', color='blue', alpha=0.6)
-    ax1.fill(angles, values_avg, alpha=0.1, color='blue')
+    ax1.plot(angles, values_expert_closed, 'o-', linewidth=2, label='专业深耕型用户', color='red')
+    ax1.fill(angles, values_expert_closed, alpha=0.25, color='red')
+    ax1.plot(angles, values_avg_closed, 'o--', linewidth=1.5, label='全局平均', color='blue', alpha=0.6)
+    ax1.fill(angles, values_avg_closed, alpha=0.1, color='blue')
     
     ax1.set_xticks(angles[:-1])
     ax1.set_xticklabels(categories, fontsize=13)
@@ -487,20 +487,23 @@ def figure_5_4_user_radar():
     # 图2：对比其他类型用户
     # 广泛涉猎型用户
     values_broad = [60, 40, 85, 45, 70]
-    values_broad += values_broad[:1]
+    values_broad_closed = values_broad + values_broad[:1]
     
     # 休闲阅读型用户
     values_casual = [30, 60, 55, 30, 40]
-    values_casual += values_casual[:1]
+    values_casual_closed = values_casual + values_casual[:1]
     
-    ax2.plot(angles, values_expert, 'o-', linewidth=2, label='专业深耕型', color='red')
-    ax2.fill(angles, values_expert, alpha=0.2, color='red')
+    # 专业深耕型用户（显式闭合，不依赖图1的副作用）
+    values_expert_closed2 = values_expert + values_expert[:1]
     
-    ax2.plot(angles, values_broad, 's-', linewidth=2, label='广泛涉猎型', color='green')
-    ax2.fill(angles, values_broad, alpha=0.2, color='green')
+    ax2.plot(angles, values_expert_closed2, 'o-', linewidth=2, label='专业深耕型', color='red')
+    ax2.fill(angles, values_expert_closed2, alpha=0.2, color='red')
     
-    ax2.plot(angles, values_casual, '^-', linewidth=2, label='休闲阅读型', color='blue')
-    ax2.fill(angles, values_casual, alpha=0.2, color='blue')
+    ax2.plot(angles, values_broad_closed, 's-', linewidth=2, label='广泛涉猎型', color='green')
+    ax2.fill(angles, values_broad_closed, alpha=0.2, color='green')
+    
+    ax2.plot(angles, values_casual_closed, '^-', linewidth=2, label='休闲阅读型', color='blue')
+    ax2.fill(angles, values_casual_closed, alpha=0.2, color='blue')
     
     ax2.set_xticks(angles[:-1])
     ax2.set_xticklabels(categories, fontsize=13)
