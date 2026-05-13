@@ -58,7 +58,7 @@ class BookRecommender:
             {where_clause}
         """)
         
-        # 关键修复：加载所有历史借阅记录（用于计算用户偏好和热门度）
+        # 加载所有历史借阅记录（用于计算用户偏好和热门度）
         # 用户偏好和热门度应该基于长期历史，而不是单月数据
         self.lend_detail_all = self.spark.sql("""
             SELECT userid, book_id, lend_date
@@ -134,7 +134,7 @@ class BookRecommender:
         
         model = als.fit(matrix_indexed)
         
-        # 关键修改：推荐更多候选（50本），然后过滤已借图书，确保最终有足够的推荐
+        # 推荐更多候选（50本），然后过滤已借图书，确保最终有足够的推荐
         user_recs = model.recommendForAllUsers(50)
         
         # 解析推荐结果
@@ -196,7 +196,7 @@ class BookRecommender:
         # 获取所有用户
         all_users = self.user_info.select("userid")
         
-        # 关键修复：用户偏好应该基于所有历史数据，而不是当前处理月份
+        # 用户偏好应该基于所有历史数据，而不是当前处理月份
         user_subject_pref = self.lend_detail_all \
             .join(self.book_info, "book_id") \
             .groupBy("userid", "subject") \
@@ -237,7 +237,7 @@ class BookRecommender:
             (size(col("preferred_subjects")) > 0) | (size(col("preferred_authors")) > 0)
         )
         
-        # 关键优化：避免crossJoin，改用explode + join
+        # 优化：避免crossJoin，改用explode + join
         # 将用户偏好展开，然后与图书进行匹配
         user_subject_exploded = users_with_pref \
             .select("userid", "borrowed_books", explode("preferred_subjects").alias("pref_subject"))
@@ -286,7 +286,7 @@ class BookRecommender:
         print("\n" + "=" * 60)
         print("执行基于热门度的推荐...")
         
-        # 关键修复：热门度应该基于所有历史数据，而不是当前处理月份
+        # 热门度应该基于所有历史数据，而不是当前处理月份
         hot_books_by_subject = self.lend_detail_all \
             .join(self.book_info, "book_id") \
             .groupBy("subject", "book_id") \
@@ -324,7 +324,7 @@ class BookRecommender:
             .join(self.book_info.select("book_id", "title", "author"), "book_id") \
             .select("book_id", "title", "author", "subject", "popularity_score")
         
-        # 关键修复：用户偏好应该基于所有历史数据
+        # 用户偏好应该基于所有历史数据
         user_subject_pref = self.lend_detail_all \
             .join(self.book_info, "book_id") \
             .groupBy("userid", "subject") \
@@ -336,7 +336,7 @@ class BookRecommender:
             .filter(col("rank") <= 5)  # 取TOP5偏好主题
         
         # 为有历史的用户推荐其偏好主题的热门图书
-        # 关键修改：每个主题只取TOP10，5个主题最多50本候选
+        # 每个主题只取TOP10，5个主题最多50本候选
         users_with_history = user_subject_pref.select("userid").distinct()
         
         popularity_recs_with_pref = user_subject_pref \
@@ -394,7 +394,7 @@ class BookRecommender:
         print("\n" + "=" * 60)
         print("执行混合推荐...")
         
-        # 关键优化：先按 userid+book_id 聚合（减少 shuffle 数据量），再关联图书信息
+        # 优化：先按 userid+book_id 聚合（减少 shuffle 数据量），再关联图书信息
         # 为三种推荐结果添加标识和权重
         cf_recs_weighted = cf_recs.select(
             "userid", "book_id", "subject",
@@ -538,16 +538,16 @@ class BookRecommender:
                 col("popularity_score")
             )
         
-        # 关键优化1：减少分区数，提升写入并行度
+        # 优化1：减少分区数，提升写入并行度
         # 将数据重新分区到4个分区（平衡并行度和开销）
         recommend_flat_optimized = recommend_flat.repartition(4)
         
-        # 关键优化2：缓存后再写入，避免重复计算
+        # 优化2：缓存后再写入，避免重复计算
         recommend_flat_optimized.cache()
         total_count = recommend_flat_optimized.count()  # 触发缓存并获取总数
         print(f"    准备写入 {total_count} 条推荐记录...")
         
-        # 关键优化3：写入MySQL（使用更大的批量和并行写入）
+        # 优化3：写入MySQL（使用更大的批量和并行写入）
         recommend_flat_optimized.write \
             .mode("overwrite") \
             .option("batchsize", "50000") \
